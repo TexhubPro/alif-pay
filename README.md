@@ -1,5 +1,7 @@
 # TexHub · Alif Pay
 
+**🌐 English** · [Русский](README.ru.md)
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/php-%5E8.2-777bb4.svg)](composer.json)
 [![Laravel](https://img.shields.io/badge/laravel-11%20%7C%2012%20%7C%2013-ff2d20.svg)](#laravel)
