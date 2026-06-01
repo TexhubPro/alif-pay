@@ -1,0 +1,61 @@
+{
+    "name": "texhub/alif-pay",
+    "description": "Alif Acquiring (WebCheckout) payment gateway SDK for any PHP framework with first-class Laravel support: payments, tokenization, marketplace split-payments and webhooks.",
+    "type": "library",
+    "keywords": ["php", "laravel", "alif", "alif-pay", "acquiring", "payment", "payment-gateway", "tajikistan", "webcheckout", "texhub"],
+    "homepage": "https://texhub.pro",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Mahmudi Shodmehr",
+            "email": "info@texhub.pro",
+            "homepage": "https://texhub.pro",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://texhub.pro",
+        "docs": "https://docs.acquiring.alif.tj/intro"
+    },
+    "require": {
+        "php": "^8.2",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-hash": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0 || ^12.0",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "TexHub\\AlifPay\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "TexHub\\AlifPay\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "TexHub\\AlifPay\\Laravel\\AlifPayServiceProvider"
+            ],
+            "aliases": {
+                "AlifPay": "TexHub\\AlifPay\\Laravel\\AlifPay"
+            }
+        }
+    },
+    "suggest": {
+        "illuminate/support": "Required to use the package inside a Laravel application (service provider, facade, config publishing)."
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
