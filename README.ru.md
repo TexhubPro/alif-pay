@@ -1,6 +1,6 @@
 # TexHub · Alif Pay
 
-[English](README.md) · **🌐 Русский**
+[English](README.md) · **Русский**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/php-%5E8.2-777bb4.svg)](composer.json)
@@ -14,20 +14,20 @@
 
 ---
 
-## ✨ Возможности
+## Возможности
 
-- 💳 **Стандартные платежи** — Korti Milli, кошелёк Alif, рассрочка Salom, оплата наличными по инвойсу, Visa/Mastercard
-- 🔁 **Токенизация** — привязка карт/кошельков для повторных платежей
-- 🛒 **Маркетплейс** — разделение одного платежа между несколькими продавцами, холдирование и подтверждение доставки
-- 🔐 **Подпись HMAC SHA256** — точная схема двойного HMAC, которую требует Alif, делается за вас
-- 📩 **Вебхуки** — типизированные объекты колбэков + проверка подписи
-- 🧩 **Подменяемый HTTP-транспорт** — cURL по умолчанию; можно внедрить свой для тестов
-- ✅ **Полностью покрыт тестами**, без обращения к сети
-- 🟢 Переключение **Test / Production**
+- **Стандартные платежи** — Korti Milli, кошелёк Alif, рассрочка Salom, оплата наличными по инвойсу, Visa/Mastercard
+- **Токенизация** — привязка карт/кошельков для повторных платежей
+- **Маркетплейс** — разделение одного платежа между несколькими продавцами, холдирование и подтверждение доставки
+- **Подпись HMAC SHA256** — точная схема двойного HMAC, которую требует Alif, делается за вас
+- **Вебхуки** — типизированные объекты колбэков + проверка подписи
+- **Подменяемый HTTP-транспорт** — cURL по умолчанию; можно внедрить свой для тестов
+- **Полностью покрыт тестами**, без обращения к сети
+- Переключение **Test / Production**
 
 ---
 
-## 📦 Установка
+## Установка
 
 ```bash
 composer require texhub/alif-pay
@@ -37,7 +37,7 @@ composer require texhub/alif-pay
 
 ---
 
-## 🚀 Быстрый старт (чистый PHP)
+## Быстрый старт (чистый PHP)
 
 ```php
 use TexHub\AlifPay\AlifPay;
@@ -66,18 +66,18 @@ header('Location: ' . $response->redirectUrl());
 
 ---
 
-## 🌍 Окружения
+## Окружения
 
-| Окружение                 | Базовый URL                |
+| Окружение | Базовый URL |
 |---------------------------|----------------------------|
-| `Environment::Test`       | `https://test-web.alif.tj` |
-| `Environment::Production` | `https://web.alif.tj`      |
+| `Environment::Test` | `https://test-web.alif.tj` |
+| `Environment::Production` | `https://web.alif.tj` |
 
 В тестовой среде можно использовать тестовые карты Alif для разных сценариев (заблокированная карта, недостаточно средств и т.д.) без движения реальных денег.
 
 ---
 
-## 🔐 Авторизация (как работает подпись)
+## Авторизация (как работает подпись)
 
 Каждый запрос авторизуется токеном HMAC SHA256 на основе данных запроса:
 
@@ -87,29 +87,29 @@ token = HMAC_SHA256( dataToSign, HMAC_SHA256(terminal_password, terminal_id) )
 
 SDK сам формирует правильный `dataToSign` для каждой операции:
 
-| Операция                 | `dataToSign`                                     |
+| Операция | `dataToSign` |
 |--------------------------|--------------------------------------------------|
-| Платёж / Маркетплейс     | `terminal_id + order_id + amount + callback_url` |
-| Токенизация              | `terminal_id + phone + gate`                     |
-| Подтверждение доставки   | `terminal_id + transaction_id + amount`          |
-| Подтверждение VSA/MCR    | `terminal_id + parent_transaction_id`            |
+| Платёж / Маркетплейс | `terminal_id + order_id + amount + callback_url` |
+| Токенизация | `terminal_id + phone + gate` |
+| Подтверждение доставки | `terminal_id + transaction_id + amount` |
+| Подтверждение VSA/MCR | `terminal_id + parent_transaction_id` |
 
 Вручную вызывать подпись не нужно, но при необходимости она доступна через `$alif->signature()`.
 
 ---
 
-## 💳 Платежи
+## Платежи
 
 ### Шлюзы (`Gate`)
 
-| Enum                        | Значение `gate`        | Метод                       |
+| Enum | Значение `gate` | Метод |
 |-----------------------------|------------------------|-----------------------------|
-| `Gate::KortiMilli`          | `korti_milli`          | Нац. карта *(по умолчанию)* |
-| `Gate::Wallet`              | `wallet`               | Кошелёк Alif mobi           |
-| `Gate::Salom`               | `salom`                | Рассрочка Salom             |
-| `Gate::Invoice`             | `invoice`              | Оплата наличными            |
-| `Gate::Visa`                | `vsa`                  | Visa                        |
-| `Gate::Mastercard`          | `mcr`                  | Mastercard                  |
+| `Gate::KortiMilli` | `korti_milli` | Нац. карта *(по умолчанию)* |
+| `Gate::Wallet` | `wallet` | Кошелёк Alif mobi |
+| `Gate::Salom` | `salom` | Рассрочка Salom |
+| `Gate::Invoice` | `invoice` | Оплата наличными |
+| `Gate::Visa` | `vsa` | Visa |
+| `Gate::Mastercard` | `mcr` | Mastercard |
 | `Gate::CybersourceCheckout` | `cybersource_checkout` | Cybersource hosted checkout |
 
 ### Рассрочка Salom (с позициями инвойса)
@@ -154,7 +154,7 @@ $alif->payments()->cancel(transactionId: '789012', amount: '100.50');
 
 ---
 
-## 🔁 Токенизация
+## Токенизация
 
 ```php
 use TexHub\AlifPay\Enums\TokenizationGate;
@@ -174,7 +174,7 @@ header('Location: ' . $response->redirectUrl());
 
 ---
 
-## 🛒 Маркетплейс (split-payment)
+## Маркетплейс (split-payment)
 
 ```php
 use TexHub\AlifPay\Requests\MarketplaceRequest;
@@ -207,7 +207,7 @@ $alif->marketplace()->cancel(transactionId: '789013', amount: '300.00');
 
 ---
 
-## 📩 Вебхуки (колбэки)
+## Вебхуки (колбэки)
 
 Alif отправляет `POST` на ваш `callback_url` при каждом изменении статуса. Отвечайте **HTTP 200**, иначе будет повтор.
 
@@ -239,7 +239,7 @@ echo 'OK';
 
 ### Колбэк токенизации
 
-> ⚠️ Структура колбэка токенизации **другая** (код результата в корне, данные в `payload`).
+> Структура колбэка токенизации **другая** (код результата в корне, данные в `payload`).
 
 ```php
 $callback = $alif->webhooks()->tokenizationCallback(file_get_contents('php://input'));
@@ -263,7 +263,7 @@ $alif->webhooks()->verifyToken($yourString, $callback->token);
 
 ---
 
-## ⚙️ Обработка ошибок
+## Обработка ошибок
 
 Шлюз всегда отвечает HTTP 200 и бизнес-кодом `code`. SDK превращает любой код, отличный от `200`, в `ApiException`:
 
@@ -283,19 +283,19 @@ try {
 }
 ```
 
-| Код  | Значение           | Повтор |
+| Код | Значение | Повтор |
 |------|--------------------|--------|
-| 200  | Успешно            | —      |
-| 208  | Дубликат order_id  | Нет    |
-| 400  | Ошибка валидации   | Нет    |
-| 401  | Ошибка авторизации | Нет    |
-| 403  | Неверный ключ      | Нет    |
-| 404  | Не найдено         | Да     |
-| 500  | Внутренняя ошибка  | Да     |
+| 200 | Успешно | — |
+| 208 | Дубликат order_id | Нет |
+| 400 | Ошибка валидации | Нет |
+| 401 | Ошибка авторизации | Нет |
+| 403 | Неверный ключ | Нет |
+| 404 | Не найдено | Да |
+| 500 | Внутренняя ошибка | Да |
 
 ---
 
-## <a name="laravel"></a>🧩 Laravel
+## <a name="laravel"></a> Laravel
 
 Сервис-провайдер и фасад `AlifPay` **регистрируются автоматически**. Опубликуйте конфиг:
 
@@ -357,7 +357,7 @@ public function callback(Request $request)
 
 ---
 
-## 🧪 Тестирование
+## Тестирование
 
 В комплекте есть фейковый транспорт — можно тестировать без обращения к сети:
 
@@ -383,7 +383,7 @@ composer test          # или: vendor/bin/phpunit
 
 ---
 
-## 📚 Архитектура
+## Архитектура
 
 ```
 src/

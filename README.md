@@ -1,6 +1,6 @@
 # TexHub · Alif Pay
 
-**🌐 English** · [Русский](README.ru.md)
+**English** · [Русский](README.ru.md)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/php-%5E8.2-777bb4.svg)](composer.json)
@@ -14,20 +14,20 @@ Based on the official documentation: <https://docs.acquiring.alif.tj/intro>
 
 ---
 
-## ✨ Features
+## Features
 
-- 💳 **Standard payments** — Korti Milli, Alif wallet, Salom installments, cash invoices, Visa/Mastercard
-- 🔁 **Tokenization** — bind cards/wallets for repeat charges
-- 🛒 **Marketplace** — split a single payment between multiple sellers, hold & confirm delivery
-- 🔐 **HMAC SHA256 signing** — the exact double-HMAC scheme Alif requires, done for you
-- 📩 **Webhooks** — typed callback objects + signature verification
-- 🧩 **Pluggable HTTP transport** — cURL by default; inject your own for testing
-- ✅ **Fully unit-tested**, no network needed
-- 🟢 **Test / Production** environment switch
+- **Standard payments** — Korti Milli, Alif wallet, Salom installments, cash invoices, Visa/Mastercard
+- **Tokenization** — bind cards/wallets for repeat charges
+- **Marketplace** — split a single payment between multiple sellers, hold & confirm delivery
+- **HMAC SHA256 signing** — the exact double-HMAC scheme Alif requires, done for you
+- **Webhooks** — typed callback objects + signature verification
+- **Pluggable HTTP transport** — cURL by default; inject your own for testing
+- **Fully unit-tested**, no network needed
+- **Test / Production** environment switch
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 composer require texhub/alif-pay
@@ -37,7 +37,7 @@ Requirements: **PHP ≥ 8.2** with the `curl`, `json` and `hash` extensions.
 
 ---
 
-## 🚀 Quick start (plain PHP)
+## Quick start (plain PHP)
 
 ```php
 use TexHub\AlifPay\AlifPay;
@@ -66,18 +66,18 @@ header('Location: ' . $response->redirectUrl());
 
 ---
 
-## 🌍 Environments
+## Environments
 
-| Environment               | Base URL                   |
+| Environment | Base URL |
 |---------------------------|----------------------------|
-| `Environment::Test`       | `https://test-web.alif.tj` |
-| `Environment::Production` | `https://web.alif.tj`      |
+| `Environment::Test` | `https://test-web.alif.tj` |
+| `Environment::Production` | `https://web.alif.tj` |
 
 In the test environment you can use Alif's test cards to simulate scenarios (blocked card, insufficient funds, …) without moving real money.
 
 ---
 
-## 🔐 Authorization (how signing works)
+## Authorization (how signing works)
 
 Every request is authorized with an HMAC SHA256 token built from the request data:
 
@@ -87,29 +87,29 @@ token = HMAC_SHA256( dataToSign, HMAC_SHA256(terminal_password, terminal_id) )
 
 The SDK builds the correct `dataToSign` for each operation automatically:
 
-| Operation                | `dataToSign`                                     |
+| Operation | `dataToSign` |
 |--------------------------|--------------------------------------------------|
-| Payment / Marketplace    | `terminal_id + order_id + amount + callback_url` |
-| Tokenization             | `terminal_id + phone + gate`                     |
-| Confirm delivery         | `terminal_id + transaction_id + amount`          |
-| Confirm VSA/MCR delivery | `terminal_id + parent_transaction_id`            |
+| Payment / Marketplace | `terminal_id + order_id + amount + callback_url` |
+| Tokenization | `terminal_id + phone + gate` |
+| Confirm delivery | `terminal_id + transaction_id + amount` |
+| Confirm VSA/MCR delivery | `terminal_id + parent_transaction_id` |
 
 You never call the signer manually — but it's available via `$alif->signature()` if needed.
 
 ---
 
-## 💳 Payments
+## Payments
 
 ### Gateways (`Gate`)
 
-| Enum                        | `gate` value           | Method                      |
+| Enum | `gate` value | Method |
 |-----------------------------|------------------------|-----------------------------|
-| `Gate::KortiMilli`          | `korti_milli`          | National card *(default)*   |
-| `Gate::Wallet`              | `wallet`               | Alif mobi wallet            |
-| `Gate::Salom`               | `salom`                | Salom installment           |
-| `Gate::Invoice`             | `invoice`              | Cash invoice                |
-| `Gate::Visa`                | `vsa`                  | Visa                        |
-| `Gate::Mastercard`          | `mcr`                  | Mastercard                  |
+| `Gate::KortiMilli` | `korti_milli` | National card *(default)* |
+| `Gate::Wallet` | `wallet` | Alif mobi wallet |
+| `Gate::Salom` | `salom` | Salom installment |
+| `Gate::Invoice` | `invoice` | Cash invoice |
+| `Gate::Visa` | `vsa` | Visa |
+| `Gate::Mastercard` | `mcr` | Mastercard |
 | `Gate::CybersourceCheckout` | `cybersource_checkout` | Cybersource hosted checkout |
 
 ### Salom installment (with invoice items)
@@ -154,7 +154,7 @@ $alif->payments()->cancel(transactionId: '789012', amount: '100.50');
 
 ---
 
-## 🔁 Tokenization
+## Tokenization
 
 ```php
 use TexHub\AlifPay\Enums\TokenizationGate;
@@ -174,7 +174,7 @@ Available gates: `KortiMilli`, `Wallet`, `Salom`, `Tcell`, `Megafon`, `Babilon`,
 
 ---
 
-## 🛒 Marketplace (split-payment)
+## Marketplace (split-payment)
 
 ```php
 use TexHub\AlifPay\Requests\MarketplaceRequest;
@@ -207,7 +207,7 @@ $alif->marketplace()->cancel(transactionId: '789013', amount: '300.00');
 
 ---
 
-## 📩 Webhooks (callbacks)
+## Webhooks (callbacks)
 
 Alif sends a `POST` to your `callback_url` on every status change. Respond with **HTTP 200** or it will retry.
 
@@ -239,7 +239,7 @@ For marketplace, `$callback->subTransactions` holds the per-partner breakdown an
 
 ### Tokenization callback
 
-> ⚠️ The tokenization callback has a **different** structure (result code at the root, data under `payload`).
+> The tokenization callback has a **different** structure (result code at the root, data under `payload`).
 
 ```php
 $callback = $alif->webhooks()->tokenizationCallback(file_get_contents('php://input'));
@@ -263,7 +263,7 @@ $alif->webhooks()->verifyToken($yourString, $callback->token);
 
 ---
 
-## ⚙️ Error handling
+## Error handling
 
 The gateway always replies with HTTP 200 and a business `code`. The SDK turns any non-`200` code into an `ApiException`:
 
@@ -283,19 +283,19 @@ try {
 }
 ```
 
-| Code | Meaning            | Retry |
+| Code | Meaning | Retry |
 |------|--------------------|-------|
-| 200  | Success            | —     |
-| 208  | Duplicate order_id | No    |
-| 400  | Validation error   | No    |
-| 401  | Auth error (token) | No    |
-| 403  | Invalid key        | No    |
-| 404  | Not found          | Yes   |
-| 500  | Internal error     | Yes   |
+| 200 | Success | — |
+| 208 | Duplicate order_id | No |
+| 400 | Validation error | No |
+| 401 | Auth error (token) | No |
+| 403 | Invalid key | No |
+| 404 | Not found | Yes |
+| 500 | Internal error | Yes |
 
 ---
 
-## <a name="laravel"></a>🧩 Laravel
+## <a name="laravel"></a> Laravel
 
 The service provider and `AlifPay` facade are **auto-discovered**. Publish the config:
 
@@ -357,7 +357,7 @@ public function callback(Request $request)
 
 ---
 
-## 🧪 Testing
+## Testing
 
 The SDK ships with a fake transport so you can test without hitting the network:
 
@@ -383,7 +383,7 @@ composer test          # or: vendor/bin/phpunit
 
 ---
 
-## 📚 Architecture
+## Architecture
 
 ```
 src/
