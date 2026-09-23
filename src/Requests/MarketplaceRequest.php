@@ -8,9 +8,11 @@ use TexHub\AlifPay\Enums\Gate;
 use TexHub\AlifPay\Exceptions\ConfigurationException;
 
 /**
- * Fluent builder for a marketplace split-payment (`POST /v2/`, header
- * `isMarketPlace: true`). The total `amount` must equal the sum of all
- * partner terminal amounts.
+ * Fluent builder for a marketplace split-payment (`POST /v2/`, header `isMarketPlace: true`).
+ *
+ * The splits go out as `mpTerminalInfo`, and their amounts must add up to the order amount —
+ * the gateway answers "Сумма разбивки не соответствует сумме запроса" otherwise, so the check
+ * happens here first.
  *
  * @see https://docs.acquiring.alif.tj/marketplace
  */
@@ -24,8 +26,8 @@ final class MarketplaceRequest
     private ?string $email = null;
     private ?string $phone = null;
 
-    /** @var array<int, TerminalAmount> */
-    private array $terminals = [];
+    /** @var array<int, TerminalSplit> */
+    private array $splits = [];
 
     public function __construct(
         private readonly string $orderId,
@@ -85,16 +87,19 @@ final class MarketplaceRequest
         return $this;
     }
 
-    public function addTerminal(TerminalAmount $terminal): self
+    public function addSplit(TerminalSplit $split): self
     {
-        $this->terminals[] = $terminal;
+        $this->splits[] = $split;
 
         return $this;
     }
 
-    public function splitTo(string $terminalId, int|float|string $amount): self
+    /**
+     * Shorthand for a split with no invoice lines.
+     */
+    public function splitTo(string $terminalId, int|float|string $amount, int $conditionId = 0): self
     {
-        return $this->addTerminal(new TerminalAmount($terminalId, $amount));
+        return $this->addSplit(new TerminalSplit($terminalId, $amount, $conditionId));
     }
 
     public function getOrderId(): string
@@ -118,6 +123,14 @@ final class MarketplaceRequest
     }
 
     /**
+     * @return array<int, TerminalSplit>
+     */
+    public function getSplits(): array
+    {
+        return $this->splits;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(?string $defaultCallbackUrl = null, ?string $defaultReturnUrl = null): array
@@ -133,11 +146,11 @@ final class MarketplaceRequest
             throw new ConfigurationException('A return_url is required (set it on the request or in config).');
         }
 
-        if ($this->terminals === []) {
+        if ($this->splits === []) {
             throw new ConfigurationException('A marketplace payment requires at least one partner terminal split.');
         }
 
-        $splitTotal = array_sum(array_map(static fn (TerminalAmount $t) => (float) $t->amount, $this->terminals));
+        $splitTotal = array_sum(array_map(static fn (TerminalSplit $s) => (float) $s->amount, $this->splits));
 
         if (number_format($splitTotal, 2, '.', '') !== $this->amount->value) {
             throw new ConfigurationException(sprintf(
@@ -155,7 +168,7 @@ final class MarketplaceRequest
             'return_url' => $returnUrl,
             'amount' => $this->amount->value,
             'gate' => $this->gate->value,
-            'mp_terminal_amounts' => array_map(static fn (TerminalAmount $t) => $t->toArray(), $this->terminals),
+            'mpTerminalInfo' => array_map(static fn (TerminalSplit $s) => $s->toArray(), $this->splits),
         ];
 
         if ($this->info !== null) {

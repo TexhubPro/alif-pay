@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \TexHub\AlifPay\Clients\TokenizationClient tokenization()
  * @method static \TexHub\AlifPay\Clients\MarketplaceClient  marketplace()
  * @method static \TexHub\AlifPay\Webhook\WebhookHandler     webhooks()
+ * @method static \TexHub\AlifPay\Provider\ProviderServer   provider()
  * @method static \TexHub\AlifPay\Config                     config()
  * @method static \TexHub\AlifPay\Signature                  signature()
  *

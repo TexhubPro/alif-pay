@@ -8,7 +8,10 @@ use PHPUnit\Framework\TestCase;
 use TexHub\AlifPay\Enums\PaymentStatus;
 use TexHub\AlifPay\Enums\TokenizationStatus;
 use TexHub\AlifPay\Exceptions\InvalidSignatureException;
+use TexHub\AlifPay\Enums\CallbackEvent;
 use TexHub\AlifPay\Signature;
+use TexHub\AlifPay\Webhook\DeliveryCallback;
+use TexHub\AlifPay\Webhook\PaymentCallback;
 use TexHub\AlifPay\Webhook\WebhookHandler;
 
 final class WebhookHandlerTest extends TestCase
@@ -86,11 +89,11 @@ final class WebhookHandlerTest extends TestCase
         $handler = $this->handler();
         $signature = new Signature('123456', 'super-secret');
 
-        // Default signing string: orderId . amount
-        $token = $signature->generate('ORDER_1100.00');
+        $token = $signature->generate('ORDER_1ok789012');
 
         $callback = $handler->paymentCallback([
             'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
             'amount' => 100.0,
             'status' => 'ok',
             'token' => $token,
@@ -100,6 +103,7 @@ final class WebhookHandlerTest extends TestCase
 
         $forged = $handler->paymentCallback([
             'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
             'amount' => 100.0,
             'status' => 'ok',
             'token' => 'forged',
@@ -108,5 +112,124 @@ final class WebhookHandlerTest extends TestCase
 
         $this->expectException(InvalidSignatureException::class);
         $handler->assertValidPaymentCallback($forged);
+    }
+
+    public function test_a_callback_claiming_a_different_outcome_does_not_verify(): void
+    {
+        $handler = $this->handler();
+        $signature = new Signature('123456', 'super-secret');
+
+        $callback = $handler->paymentCallback([
+            'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
+            'amount' => 100.0,
+            'status' => 'ok',
+            'token' => $signature->generate('ORDER_1failed789012'),
+        ]);
+
+        $this->assertFalse($handler->verifyPaymentCallback($callback));
+    }
+
+    public function test_it_verifies_a_status_lookup_response(): void
+    {
+        $handler = $this->handler();
+        $signature = new Signature('123456', 'super-secret');
+
+        $response = [
+            'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
+            'status' => 'ok',
+            'amount' => 100.0,
+            'token' => $signature->generate('ORDER_1ok789012'),
+        ];
+
+        $this->assertTrue($handler->verifyStatusResponse($response));
+
+        $response['token'] = $signature->generate('ORDER_1ok789013');
+        $this->assertFalse($handler->verifyStatusResponse($response));
+
+        $this->assertFalse($handler->verifyStatusResponse(['orderId' => 'ORDER_1', 'status' => 'ok']));
+    }
+
+    public function test_it_parses_a_delivery_confirmation_event(): void
+    {
+        $callback = $this->handler()->deliveryCallback(json_encode([
+            'terminal_id' => 'partner_terminal_1',
+            'transaction_id' => '789013',
+            'status' => 'ok',
+            'event' => 'confirm',
+            'parent_transaction_id' => '789012',
+            'parent_status' => 'ok',
+        ], JSON_THROW_ON_ERROR));
+
+        $this->assertSame('partner_terminal_1', $callback->terminalId);
+        $this->assertSame('789013', $callback->transactionId);
+        $this->assertSame(CallbackEvent::Confirm, $callback->event);
+        $this->assertTrue($callback->isConfirmation());
+        $this->assertFalse($callback->isCancellation());
+        $this->assertSame('789012', $callback->parentTransactionId);
+        $this->assertTrue($callback->isParentFinal());
+    }
+
+    public function test_a_partial_cancellation_leaves_the_parent_open(): void
+    {
+        $callback = $this->handler()->deliveryCallback([
+            'terminal_id' => 'partner_terminal_1',
+            'transaction_id' => '789013',
+            'status' => 'partially_canceled',
+            'event' => 'cancel',
+            'parent_transaction_id' => '789012',
+            'parent_status' => 'partially_canceled',
+        ]);
+
+        $this->assertTrue($callback->isCancellation());
+        $this->assertSame(PaymentStatus::PartiallyCanceled, $callback->status);
+        $this->assertFalse($callback->isParentFinal());
+    }
+
+    public function test_the_dispatcher_tells_the_three_callback_shapes_apart(): void
+    {
+        $handler = $this->handler();
+
+        $payment = $handler->callback([
+            'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
+            'status' => 'ok',
+            'token' => str_repeat('a', 64),
+            'amount' => 100.0,
+        ]);
+
+        $event = $handler->callback([
+            'terminal_id' => 'partner_terminal_1',
+            'transaction_id' => '789013',
+            'status' => 'ok',
+            'event' => 'confirm',
+            'parent_transaction_id' => '789012',
+            'parent_status' => 'ok',
+        ]);
+
+        $this->assertInstanceOf(PaymentCallback::class, $payment);
+        $this->assertInstanceOf(DeliveryCallback::class, $event);
+    }
+
+    public function test_a_status_response_can_be_asserted_instead_of_checked(): void
+    {
+        $handler = $this->handler();
+        $signature = new Signature('123456', 'super-secret');
+
+        $handler->assertValidStatusResponse([
+            'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
+            'status' => 'ok',
+            'token' => $signature->generate('ORDER_1ok789012'),
+        ]);
+
+        $this->expectException(InvalidSignatureException::class);
+        $handler->assertValidStatusResponse([
+            'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
+            'status' => 'ok',
+            'token' => 'forged',
+        ]);
     }
 }

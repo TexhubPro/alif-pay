@@ -7,8 +7,10 @@ namespace TexHub\AlifPay\Enums;
 /**
  * API response codes returned in the `code` field of every response.
  *
- * Note: the gateway always answers with HTTP 200; the business outcome is
- * carried by this `code` field.
+ * The `code` mirrors the HTTP status of the answer — a duplicate order arrives as HTTP 208 with
+ * `code: 208`, a rejected token as HTTP 401 with `code: 401` — so either one can be read. Status
+ * lookups are the exception: a transaction that was found is returned as itself and carries no
+ * `code` at all.
  *
  * @see https://docs.acquiring.alif.tj/intro
  */

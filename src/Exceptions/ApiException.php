@@ -9,9 +9,10 @@ use TexHub\AlifPay\Enums\ResponseCode;
 /**
  * Thrown when the API returns a non-success result.
  *
- * The gateway always answers with HTTP 200 and signals the outcome via the
- * `code` field, but transport-level HTTP errors are surfaced here too via the
- * {@see ApiException::$httpStatus} property.
+ * The gateway answers with an HTTP status that mirrors the business `code`, and both are kept:
+ * the transport status in {@see ApiException::$httpStatus}, the API code in
+ * {@see ApiException::$apiCode}. Where a response carries no `code`, the HTTP status stands in
+ * for it.
  */
 class ApiException extends AlifPayException
 {

@@ -18,7 +18,6 @@ final class SignatureTest extends TestCase
     {
         $data = '123456ORDER_1100.50https://shop.tj/callback';
 
-        // Reference implementation: HMAC(data, HMAC(password, terminalId)).
         $secret = hash_hmac('sha256', 'super-secret', '123456');
         $expected = hash_hmac('sha256', $data, $secret);
 

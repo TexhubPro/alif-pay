@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace TexHub\AlifPay\Webhook;
 
+use TexHub\AlifPay\Enums\TokenizationState;
 use TexHub\AlifPay\Enums\TokenizationStatus;
 
 /**
@@ -57,6 +58,14 @@ final class TokenizationCallback
             payload: $payload,
             raw: $data,
         );
+    }
+
+    /**
+     * The payload status as an enum: approved, failed, duplicate, accepted or removed.
+     */
+    public function state(): ?TokenizationState
+    {
+        return TokenizationState::tryFrom($this->status);
     }
 
     public function isSuccessful(): bool

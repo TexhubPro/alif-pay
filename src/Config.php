@@ -20,6 +20,8 @@ final class Config
      * @param string|null  $returnUrl          Default browser return URL (overridable per request).
      * @param int          $timeout            HTTP timeout in seconds.
      * @param string|null  $baseUrl            Override the environment base URL (advanced).
+     * @param string|null  $providerLogin      Basic-auth login of the provider endpoint Alif calls.
+     * @param string|null  $providerPassword   Basic-auth password of that endpoint.
      */
     public function __construct(
         public readonly string $terminalId,
@@ -29,6 +31,8 @@ final class Config
         public readonly ?string $returnUrl = null,
         public readonly int $timeout = 30,
         private readonly ?string $baseUrl = null,
+        public readonly ?string $providerLogin = null,
+        public readonly ?string $providerPassword = null,
     ) {
         if (trim($this->terminalId) === '') {
             throw new ConfigurationException('Alif Pay terminal id (key) must not be empty.');
@@ -64,7 +68,26 @@ final class Config
             returnUrl: isset($config['return_url']) ? (string) $config['return_url'] : null,
             timeout: (int) ($config['timeout'] ?? 30),
             baseUrl: isset($config['base_url']) && $config['base_url'] !== '' ? (string) $config['base_url'] : null,
+            providerLogin: self::optionalString($config['provider_login'] ?? null),
+            providerPassword: self::optionalString($config['provider_password'] ?? null),
         );
+    }
+
+    /**
+     * Whether the provider endpoint credentials are configured.
+     */
+    public function hasProviderCredentials(): bool
+    {
+        return $this->providerLogin !== null && $this->providerPassword !== null;
+    }
+
+    private static function optionalString(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (string) $value;
     }
 
     /**

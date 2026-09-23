@@ -8,8 +8,10 @@ use TexHub\AlifPay\Clients\MarketplaceClient;
 use TexHub\AlifPay\Clients\PaymentClient;
 use TexHub\AlifPay\Clients\TokenizationClient;
 use TexHub\AlifPay\Enums\Environment;
+use TexHub\AlifPay\Exceptions\ConfigurationException;
 use TexHub\AlifPay\Http\CurlTransport;
 use TexHub\AlifPay\Http\Transport;
+use TexHub\AlifPay\Provider\ProviderServer;
 use TexHub\AlifPay\Webhook\WebhookHandler;
 
 /**
@@ -42,6 +44,7 @@ final class AlifPay
     private ?TokenizationClient $tokenization = null;
     private ?MarketplaceClient $marketplace = null;
     private ?WebhookHandler $webhooks = null;
+    private ?ProviderServer $provider = null;
 
     public function __construct(
         private readonly Config $config,
@@ -104,5 +107,27 @@ final class AlifPay
     public function webhooks(): WebhookHandler
     {
         return $this->webhooks ??= new WebhookHandler($this->signature);
+    }
+
+    /**
+     * The provider endpoint Alif calls with check / pay / status.
+     *
+     * It authorizes with its own Basic credentials, not with the terminal ones, so it is only
+     * available once those are configured.
+     *
+     * @throws ConfigurationException
+     */
+    public function provider(): ProviderServer
+    {
+        if (! $this->config->hasProviderCredentials()) {
+            throw new ConfigurationException(
+                'Alif provider credentials are not configured (provider_login / provider_password).',
+            );
+        }
+
+        return $this->provider ??= new ProviderServer(
+            (string) $this->config->providerLogin,
+            (string) $this->config->providerPassword,
+        );
     }
 }

@@ -8,18 +8,25 @@ use TexHub\AlifPay\Exceptions\TransportException;
 
 /**
  * Default {@see Transport} implementation built on the cURL extension.
+ *
+ * Certificate verification, the protocol allowlist and the refusal to follow redirects are set
+ * explicitly rather than left to the defaults: a signed payload carrying a terminal token must
+ * not be replayable to whatever host a redirect names.
  */
 final class CurlTransport implements Transport
 {
     public function __construct(
         private readonly int $timeout = 30,
-        private readonly string $userAgent = 'texhub-alif-pay/1.0 (+https://texhub.pro)',
+        private readonly string $userAgent = 'texhub-alif-pay/2.0 (+https://texhub.pro)',
     ) {
     }
 
     public function post(string $url, array $body, array $headers = []): RawResponse
     {
-        $payload = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $payload = json_encode(
+            $body,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION,
+        );
 
         if ($payload === false) {
             throw new TransportException('Failed to JSON-encode the Alif request body: ' . json_last_error_msg());
@@ -33,8 +40,7 @@ final class CurlTransport implements Transport
             $headerLines[] = $name . ': ' . $value;
         }
 
-        $ch = curl_init();
-        curl_setopt_array($ch, [
+        $options = [
             CURLOPT_URL => $url,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $payload,
@@ -44,13 +50,23 @@ final class CurlTransport implements Transport
             CURLOPT_CONNECTTIMEOUT => $this->timeout,
             CURLOPT_USERAGENT => $this->userAgent,
             CURLOPT_FAILONERROR => false,
-        ]);
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ];
+
+        if (defined('CURLOPT_PROTOCOLS_STR')) {
+            $options[CURLOPT_PROTOCOLS_STR] = 'https';
+        }
+
+        $ch = curl_init();
+        curl_setopt_array($ch, $options);
 
         $response = curl_exec($ch);
         $errorNo = curl_errno($ch);
         $error = curl_error($ch);
         $statusCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
+        unset($ch);
 
         if ($errorNo !== 0 || $response === false) {
             throw new TransportException(sprintf('Alif request to %s failed: %s', $url, $error ?: 'unknown cURL error'));

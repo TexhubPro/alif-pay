@@ -8,6 +8,7 @@ use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Support\ServiceProvider;
 use TexHub\AlifPay\AlifPay as AlifPayClient;
 use TexHub\AlifPay\Config;
+use TexHub\AlifPay\Provider\ProviderServer;
 use TexHub\AlifPay\Webhook\WebhookHandler;
 
 class AlifPayServiceProvider extends ServiceProvider implements DeferrableProvider
@@ -29,6 +30,10 @@ class AlifPayServiceProvider extends ServiceProvider implements DeferrableProvid
         $this->app->singleton(WebhookHandler::class, function ($app): WebhookHandler {
             return $app->make(AlifPayClient::class)->webhooks();
         });
+
+        $this->app->singleton(ProviderServer::class, function ($app): ProviderServer {
+            return $app->make(AlifPayClient::class)->provider();
+        });
     }
 
     public function boot(): void
@@ -49,6 +54,7 @@ class AlifPayServiceProvider extends ServiceProvider implements DeferrableProvid
             Config::class,
             AlifPayClient::class,
             WebhookHandler::class,
+            ProviderServer::class,
             'alif-pay',
         ];
     }

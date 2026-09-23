@@ -21,18 +21,46 @@ final class TokenizationRequest
     private ?string $returnUrl = null;
     private ?string $clientId = null;
 
+    private readonly string $phone;
+
     public function __construct(
         private readonly string $orderId,
-        private readonly string $phone,
+        string $phone,
         private readonly TokenizationGate $gate,
     ) {
         if (trim($orderId) === '') {
             throw new ConfigurationException('Tokenization orderId must not be empty.');
         }
 
-        if (trim($phone) === '') {
-            throw new ConfigurationException('Tokenization phone must not be empty.');
+        if (mb_strlen($orderId) > 40) {
+            throw new ConfigurationException('Tokenization orderId must not exceed 40 characters.');
         }
+
+        $this->phone = self::normalizePhone($phone);
+    }
+
+    /**
+     * Bring a phone number to the `+992XXXXXXXXX` form Alif requires.
+     *
+     * The number is part of the signing string, so the value sent and the value signed must be
+     * the one produced here, never the one the caller happened to type.
+     */
+    private static function normalizePhone(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        if (strlen($digits) === 9) {
+            $digits = '992' . $digits;
+        }
+
+        if (! preg_match('/^992\d{9}$/', $digits)) {
+            throw new ConfigurationException(sprintf(
+                'Invalid Tajik phone number for tokenization: "%s" (expected +992XXXXXXXXX).',
+                $phone,
+            ));
+        }
+
+        return '+' . $digits;
     }
 
     public static function make(string $orderId, string $phone, TokenizationGate $gate): self

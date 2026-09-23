@@ -10,6 +10,7 @@ use TexHub\AlifPay\Config;
 use TexHub\AlifPay\Enums\Environment;
 use TexHub\AlifPay\Enums\Gate;
 use TexHub\AlifPay\Exceptions\ApiException;
+use TexHub\AlifPay\Exceptions\ConfigurationException;
 use TexHub\AlifPay\Requests\PaymentRequest;
 use TexHub\AlifPay\Signature;
 use TexHub\AlifPay\Tests\Support\FakeTransport;
@@ -39,20 +40,39 @@ final class PaymentClientTest extends TestCase
                 ->returnUrl('https://shop.tj/ok')
         );
 
-        // URL + headers
         $this->assertSame('https://test-web.alif.tj/v2/', $transport->lastUrl);
         $this->assertSame('korti_milli', $transport->lastHeaders['gate']);
 
-        // Body carries terminal key and the correct HMAC token.
         $this->assertSame('123456', $transport->lastBody['key']);
 
         $expectedSignature = new Signature('123456', 'super-secret');
         $expectedToken = $expectedSignature->generate('123456ORDER_1100.50https://shop.tj/cb');
         $this->assertSame($expectedToken, $transport->lastBody['token']);
 
-        // Response
         $this->assertTrue($response->isSuccessful());
         $this->assertSame('https://web.alif.tj/abc123', $response->redirectUrl());
+    }
+
+    public function test_a_gate_the_enum_does_not_name_can_still_be_sent(): void
+    {
+        $transport = new FakeTransport();
+
+        $this->alif($transport)->payments()->initiate(
+            PaymentRequest::make('ORDER_1', 10)
+                ->gateValue('google_pay')
+                ->callbackUrl('https://shop.tj/cb')
+                ->returnUrl('https://shop.tj/ok')
+        );
+
+        $this->assertSame('google_pay', $transport->lastHeaders['gate']);
+        $this->assertSame('google_pay', $transport->lastBody['gate']);
+    }
+
+    public function test_a_gate_that_is_not_a_gate_is_refused(): void
+    {
+        $this->expectException(ConfigurationException::class);
+
+        PaymentRequest::make('ORDER_1', 10)->gateValue('../../etc/passwd');
     }
 
     public function test_non_success_code_throws_api_exception(): void
@@ -97,14 +117,35 @@ final class PaymentClientTest extends TestCase
     public function test_check_status_posts_to_checktxn(): void
     {
         $transport = (new FakeTransport())->willReturnJson([
-            'code' => 200,
-            'message' => 'Успешно',
+            'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
             'status' => 'ok',
+            'token' => 'a'.str_repeat('b', 63),
+            'amount' => 150.50,
+            'phone' => '992901234567',
         ]);
 
-        $this->alif($transport)->payments()->checkStatus('ORDER_1');
+        $response = $this->alif($transport)->payments()->checkStatus('ORDER_1');
 
         $this->assertSame('https://test-web.alif.tj/checktxn', $transport->lastUrl);
-        $this->assertSame('ORDER_1', $transport->lastBody['order_id']);
+        $this->assertSame('ORDER_1', $transport->lastBody['orderId']);
+        $this->assertSame('ok', $response->get('status'));
+        $this->assertSame('789012', $response->get('transactionId'));
+
+        $expected = (new Signature('123456', 'super-secret'))->generate('123456ORDER_1');
+        $this->assertSame($expected, $transport->lastBody['token']);
+    }
+
+    public function test_check_status_still_raises_the_errors_the_gateway_reports(): void
+    {
+        $transport = (new FakeTransport())->willReturnJson([
+            'code' => 404,
+            'message' => 'Транзакция не найдена',
+        ], 404);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('Транзакция не найдена');
+
+        $this->alif($transport)->payments()->checkStatus('ORDER_1');
     }
 }

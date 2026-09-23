@@ -39,25 +39,37 @@ final class PaymentClient extends AbstractClient
     /**
      * Check the status of a standard transaction (`POST /checktxn`).
      *
-     * Signing string: terminalId . order_id
+     * The field is `orderId`, not `order_id`: this endpoint is the one place in the API that
+     * spells it in camel case, and the request is rejected as an invalid order identifier if it
+     * is sent any other way.
+     *
+     * A found transaction is returned as itself — `orderId`, `transactionId`, `status`, `token`,
+     * `amount` — with no `code` field, so this response is not judged by one. Verify the `token`
+     * it carries with {@see \TexHub\AlifPay\Webhook\WebhookHandler::verifyStatusToken()} before
+     * acting on the status.
+     *
+     * Signing string: terminalId . orderId
      */
     public function checkStatus(string $orderId): Response
     {
         $body = [
             'key' => $this->config->terminalId,
-            'order_id' => $orderId,
+            'orderId' => $orderId,
             'token' => $this->token(Signature::concat($this->config->terminalId, $orderId)),
         ];
 
-        return $this->send('/checktxn', $body);
+        return $this->send('/checktxn', $body, [], false);
     }
 
     /**
      * Cancel / refund a standard transaction (`POST /cancel/standard`).
      *
+     * Only a whole transaction can be cancelled here — the amount must equal the transaction's
+     * own, and Salom payments can only be cancelled within 14 days of being created.
+     *
      * Signing string: terminalId . transaction_id . amount
      */
-    public function cancel(string $transactionId, int|float|string $amount): Response
+    public function cancel(string $transactionId, int|float|string $amount, ?string $reason = null): Response
     {
         $normalized = Amount::of($amount)->value;
 
@@ -67,6 +79,10 @@ final class PaymentClient extends AbstractClient
             'amount' => $normalized,
             'token' => $this->token(Signature::concat($this->config->terminalId, $transactionId, $normalized)),
         ];
+
+        if ($reason !== null && trim($reason) !== '') {
+            $body['reason'] = $reason;
+        }
 
         return $this->send('/cancel/standard', $body);
     }

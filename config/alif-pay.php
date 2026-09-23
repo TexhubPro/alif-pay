@@ -49,6 +49,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Provider endpoint credentials
+    |--------------------------------------------------------------------------
+    |
+    | Only for the provider protocol, where Alif calls your server with check /
+    | pay / status requests and authorizes with HTTP Basic. Leave empty if you
+    | only accept payments.
+    |
+    */
+    'provider_login' => env('ALIF_PAY_PROVIDER_LOGIN'),
+    'provider_password' => env('ALIF_PAY_PROVIDER_PASSWORD'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Base URL override (advanced)
     |--------------------------------------------------------------------------
     |

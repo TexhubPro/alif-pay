@@ -7,7 +7,11 @@ namespace TexHub\AlifPay\Enums;
 /**
  * Transaction statuses delivered through callbacks and status checks.
  *
+ * Standard payments move between pending, ok, failed, canceled and partially_canceled;
+ * marketplace payments add the hold states to_approve, partially_approved and approved.
+ *
  * @see https://docs.acquiring.alif.tj/payments
+ * @see https://docs.acquiring.alif.tj/marketplace
  */
 enum PaymentStatus: string
 {
@@ -19,6 +23,9 @@ enum PaymentStatus: string
 
     /** Payment completed successfully (funds captured). */
     case Ok = 'ok';
+
+    /** Funds settled with the merchant; still cancellable. */
+    case Settled = 'settled';
 
     /** Delivery confirmed / captured (marketplace). */
     case Approved = 'approved';
@@ -42,7 +49,7 @@ enum PaymentStatus: string
     public function isFinal(): bool
     {
         return match ($this) {
-            self::Ok, self::Approved, self::Failed, self::Canceled => true,
+            self::Ok, self::Settled, self::Approved, self::Failed, self::Canceled => true,
             default => false,
         };
     }
@@ -50,7 +57,7 @@ enum PaymentStatus: string
     /** Whether this status represents a successful, money-captured outcome. */
     public function isSuccessful(): bool
     {
-        return $this === self::Ok || $this === self::Approved;
+        return $this === self::Ok || $this === self::Settled || $this === self::Approved;
     }
 
     public function isFailedOrCanceled(): bool

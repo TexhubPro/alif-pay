@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use TexHub\AlifPay\Enums\Environment;
 use TexHub\AlifPay\Enums\PaymentStatus;
 use TexHub\AlifPay\Enums\ResponseCode;
+use TexHub\AlifPay\Enums\TokenizationState;
 
 final class EnumsTest extends TestCase
 {
@@ -23,6 +24,22 @@ final class EnumsTest extends TestCase
         $this->assertSame(Environment::Production, Environment::fromString('PRODUCTION'));
         $this->assertSame(Environment::Production, Environment::fromString('live'));
         $this->assertSame(Environment::Test, Environment::fromString('whatever'));
+    }
+
+    public function test_settled_is_a_captured_final_state(): void
+    {
+        $this->assertTrue(PaymentStatus::Settled->isSuccessful());
+        $this->assertTrue(PaymentStatus::Settled->isFinal());
+        $this->assertSame(PaymentStatus::Settled, PaymentStatus::tryFrom('settled'));
+    }
+
+    public function test_tokenization_state_says_which_tokens_can_be_charged(): void
+    {
+        $this->assertTrue(TokenizationState::Approved->isUsable());
+        $this->assertTrue(TokenizationState::Duplicate->isUsable());
+        $this->assertFalse(TokenizationState::Failed->isUsable());
+        $this->assertFalse(TokenizationState::Removed->isUsable());
+        $this->assertFalse(TokenizationState::Accepted->isFinal());
     }
 
     public function test_payment_status_classification(): void

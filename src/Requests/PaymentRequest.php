@@ -18,7 +18,7 @@ use TexHub\AlifPay\Exceptions\ConfigurationException;
 final class PaymentRequest
 {
     private Amount $amount;
-    private Gate $gate = Gate::KortiMilli;
+    private string $gate = Gate::KortiMilli->value;
     private ?string $callbackUrl = null;
     private ?string $returnUrl = null;
     private ?string $info = null;
@@ -47,6 +47,27 @@ final class PaymentRequest
 
     public function gate(Gate $gate): self
     {
+        $this->gate = $gate->value;
+
+        return $this;
+    }
+
+    /**
+     * A gate by its raw value, for methods the published table does not name yet.
+     *
+     * Alif's own list of supported methods is longer than its list of gate values — Google Pay is
+     * on the first and not on the second — and a terminal may be set up with one before it is
+     * written down. An unknown value is not refused by the gateway: it answers with the standard
+     * payment form, where the customer picks.
+     */
+    public function gateValue(string $gate): self
+    {
+        $gate = trim($gate);
+
+        if ($gate === '' || ! preg_match('/^[a-z0-9_]+$/', $gate)) {
+            throw new ConfigurationException(sprintf('Invalid Alif gate: "%s".', $gate));
+        }
+
         $this->gate = $gate;
 
         return $this;
@@ -126,7 +147,7 @@ final class PaymentRequest
         return $this->amount->value;
     }
 
-    public function getGate(): Gate
+    public function getGate(): string
     {
         return $this->gate;
     }
@@ -162,7 +183,7 @@ final class PaymentRequest
             'callback_url' => $callbackUrl,
             'return_url' => $returnUrl,
             'amount' => $this->amount->value,
-            'gate' => $this->gate->value,
+            'gate' => $this->gate,
         ];
 
         if ($this->info !== null) {

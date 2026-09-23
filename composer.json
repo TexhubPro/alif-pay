@@ -1,8 +1,8 @@
 {
     "name": "texhub/alif-pay",
-    "description": "Alif Acquiring (WebCheckout) payment gateway SDK for any PHP framework with first-class Laravel support: payments, tokenization, marketplace split-payments and webhooks.",
+    "description": "Alif Acquiring (WebCheckout) payment gateway SDK for any PHP framework with first-class Laravel support: payments, tokenization and token charges, marketplace split-payments, webhooks and the Alif provider protocol.",
     "type": "library",
-    "keywords": ["php", "laravel", "alif", "alif-pay", "acquiring", "payment", "payment-gateway", "tajikistan", "webcheckout", "texhub"],
+    "keywords": ["php", "laravel", "alif", "alif-pay", "acquiring", "payment", "payment-gateway", "tokenization", "marketplace", "tajikistan", "webcheckout", "texhub"],
     "homepage": "https://texhub.pro",
     "license": "MIT",
     "authors": [
