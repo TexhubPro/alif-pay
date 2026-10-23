@@ -53,6 +53,23 @@ optional.
 `POST /checktxn` with `orderId`, exactly as for a standard payment — no marketplace header, which
 the documentation does not ask for. The answer adds `sub_transactions`.
 
+## salomConditions()
+
+`GET /conditions/{key}` — the only GET in the API. The terminal key goes in the path and its
+signature (`HMAC(key)`) in a `Token` header. Answers one entry per seller terminal with its Salom
+conditions, typed as `Responses\TerminalConditions` / `SalomCondition`. A condition id is valid
+only for the terminal it is listed under; it goes into that split's `condition_id`.
+
+## currency()
+
+`POST /currency`, identical to the payments one — see `payments.md`.
+
+## Callbacks
+
+The payment callback (`event: payment`) adds `sub_transactions`. Confirmations and cancellations
+arrive per sub-transaction (`event: confirm` / `cancel`, with `parent_transaction_id` and
+`parent_status`) and are signed over `terminal_id + transaction_id + status` — see `webhooks.md`.
+
 ## Statuses
 
 `pending`, `to_approve` (held), `ok`, `partially_approved`, `failed`, `canceled`,

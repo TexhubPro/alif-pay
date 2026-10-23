@@ -13,6 +13,9 @@ use TexHub\AlifPay\Exceptions\ConfigurationException;
  * The body is wrapped in a `data` object; `key` and `token` are injected by the
  * client. The signing string is `terminalId . phone . gate`.
  *
+ * `clientID` is required: the gateway refuses a binding without it ("Неправильный идентификатор
+ * клиента"), and a subscription later has to name the same value as `partner_client_id`.
+ *
  * @see https://docs.acquiring.alif.tj/tokenization
  */
 final class TokenizationRequest
@@ -84,6 +87,10 @@ final class TokenizationRequest
 
     public function clientId(string $clientId): self
     {
+        if (trim($clientId) === '') {
+            throw new ConfigurationException('Tokenization clientID must not be empty.');
+        }
+
         $this->clientId = $clientId;
 
         return $this;
@@ -122,17 +129,18 @@ final class TokenizationRequest
             throw new ConfigurationException('A returnURL is required (set it on the request or in config).');
         }
 
+        if ($this->clientId === null) {
+            throw new ConfigurationException('A clientID is required for tokenization (call ->clientId()).');
+        }
+
         $data = [
             'orderId' => $this->orderId,
             'callbackURL' => $callbackUrl,
             'returnURL' => $returnUrl,
             'phone' => $this->phone,
             'gate' => $this->gate->value,
+            'clientID' => $this->clientId,
         ];
-
-        if ($this->clientId !== null) {
-            $data['clientID'] = $this->clientId;
-        }
 
         return $data;
     }

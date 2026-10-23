@@ -8,9 +8,12 @@ use TexHub\AlifPay\Enums\TokenizationState;
 use TexHub\AlifPay\Enums\TokenizationStatus;
 
 /**
- * Parsed tokenization callback payload. Note its structure differs from a
- * normal payment callback: the result code lives at the root and the data is
- * nested under `payload`.
+ * Parsed tokenization callback payload. Its structure differs from a payment callback: the result
+ * code lives at the root and the data is nested under `Payload`.
+ *
+ * Alif sends the root keys in PascalCase — `Code`, `Message`, `Messages`, `ReasonCode`,
+ * `Payload` — and `Payload.transaction_type` without the `tokenization_` prefix (`wallet`,
+ * `korti_milli`, `visa`, …). Lowercase keys are still read so that older payloads parse.
  *
  * @see https://docs.acquiring.alif.tj/tokenization
  */
@@ -41,14 +44,16 @@ final class TokenizationCallback
      */
     public static function fromArray(array $data): self
     {
-        $payload = (array) ($data['payload'] ?? []);
-        $code = (int) ($data['code'] ?? 0);
+        $pick = static fn (string $pascal, string $lower, mixed $default = null): mixed => $data[$pascal] ?? $data[$lower] ?? $default;
+
+        $payload = (array) $pick('Payload', 'payload', []);
+        $code = (int) $pick('Code', 'code', 0);
 
         return new self(
             code: $code,
             statusCode: TokenizationStatus::tryFrom($code),
-            message: (string) ($data['message'] ?? ''),
-            reasonCode: (string) ($data['reason_code'] ?? ''),
+            message: (string) $pick('Message', 'message', ''),
+            reasonCode: (string) ($data['ReasonCode'] ?? $data['reason_code'] ?? $data['reasonCode'] ?? ''),
             transactionId: isset($payload['transactionId']) ? (int) $payload['transactionId'] : null,
             orderId: (string) ($payload['orderId'] ?? ''),
             token: (string) ($payload['token'] ?? ''),
@@ -58,6 +63,14 @@ final class TokenizationCallback
             payload: $payload,
             raw: $data,
         );
+    }
+
+    /**
+     * The bound method without the `tokenization_` prefix, however the payload spelled it.
+     */
+    public function method(): ?string
+    {
+        return $this->transactionType === null ? null : preg_replace('/^tokenization_/', '', $this->transactionType);
     }
 
     /**

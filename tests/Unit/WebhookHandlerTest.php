@@ -27,6 +27,8 @@ final class WebhookHandlerTest extends TestCase
             'orderId' => 'ORDER_123456',
             'transactionId' => '789012',
             'status' => 'ok',
+            'event' => 'payment',
+            'info' => 'Оплата заказа №123456',
             'token' => 'abc',
             'amount' => 150.50,
             'account' => '622617******1234',
@@ -41,6 +43,8 @@ final class WebhookHandlerTest extends TestCase
         $this->assertTrue($callback->isSuccessful());
         $this->assertFalse($callback->isMarketplace());
         $this->assertSame(150.50, $callback->amount);
+        $this->assertSame(CallbackEvent::Payment, $callback->event);
+        $this->assertSame('Оплата заказа №123456', $callback->info);
     }
 
     public function test_it_parses_marketplace_sub_transactions(): void
@@ -49,6 +53,7 @@ final class WebhookHandlerTest extends TestCase
             'orderId' => 'MP_ORDER_1',
             'transactionId' => '789012',
             'status' => 'ok',
+            'event' => 'payment',
             'amount' => 500.0,
             'sub_transactions' => [
                 ['terminal_id' => 'p1', 'transaction_id' => '789013', 'status' => 'ok'],
@@ -65,20 +70,25 @@ final class WebhookHandlerTest extends TestCase
     public function test_it_parses_a_tokenization_callback(): void
     {
         $callback = $this->handler()->tokenizationCallback([
-            'code' => 1,
-            'message' => 'Успешно',
-            'reason_code' => 'success',
-            'payload' => [
+            'Code' => 1,
+            'Message' => 'Успешно',
+            'Messages' => null,
+            'ReasonCode' => '',
+            'Payload' => [
                 'transactionId' => 12345,
                 'orderId' => 'ORDER_123456',
                 'token' => str_repeat('a', 64),
                 'account' => '9929****506',
                 'status' => 'approved',
-                'transaction_type' => 'tokenization_wallet',
+                'event' => 'tokenize',
+                'transaction_type' => 'wallet',
             ],
         ]);
 
         $this->assertSame(TokenizationStatus::Success, $callback->statusCode);
+        $this->assertSame('Успешно', $callback->message);
+        $this->assertSame('wallet', $callback->method());
+        $this->assertSame('approved', $callback->status);
         $this->assertTrue($callback->isSuccessful());
         $this->assertSame('ORDER_123456', $callback->orderId);
         $this->assertSame(12345, $callback->transactionId);
@@ -187,7 +197,7 @@ final class WebhookHandlerTest extends TestCase
         $this->assertFalse($callback->isParentFinal());
     }
 
-    public function test_the_dispatcher_tells_the_three_callback_shapes_apart(): void
+    public function test_the_dispatcher_tells_payment_and_transaction_events_apart(): void
     {
         $handler = $this->handler();
 
@@ -195,8 +205,24 @@ final class WebhookHandlerTest extends TestCase
             'orderId' => 'ORDER_1',
             'transactionId' => '789012',
             'status' => 'ok',
+            'event' => 'payment',
             'token' => str_repeat('a', 64),
             'amount' => 100.0,
+        ]);
+
+        $legacy = $handler->callback([
+            'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
+            'status' => 'ok',
+            'amount' => 100.0,
+        ]);
+
+        $standardCancel = $handler->callback([
+            'terminal_id' => '123456',
+            'transaction_id' => '789012',
+            'status' => 'canceled',
+            'event' => 'cancel',
+            'token' => str_repeat('b', 64),
         ]);
 
         $event = $handler->callback([
@@ -209,7 +235,104 @@ final class WebhookHandlerTest extends TestCase
         ]);
 
         $this->assertInstanceOf(PaymentCallback::class, $payment);
+        $this->assertInstanceOf(PaymentCallback::class, $legacy);
         $this->assertInstanceOf(DeliveryCallback::class, $event);
+        $this->assertInstanceOf(DeliveryCallback::class, $standardCancel);
+        $this->assertFalse($standardCancel->isSubTransaction());
+    }
+
+    public function test_a_standard_cancellation_callback_is_verified_with_its_own_formula(): void
+    {
+        $handler = $this->handler();
+        $signature = new Signature('123456', 'super-secret');
+
+        $callback = $handler->callback(json_encode([
+            'terminal_id' => '123456',
+            'transaction_id' => '789012',
+            'status' => 'canceled',
+            'event' => 'cancel',
+            'token' => $signature->generate('123456789012canceled'),
+        ], JSON_THROW_ON_ERROR));
+
+        $this->assertInstanceOf(DeliveryCallback::class, $callback);
+        $this->assertTrue($callback->isCancellation());
+        $this->assertSame(PaymentStatus::Canceled, $callback->status);
+        $this->assertTrue($handler->verifyDeliveryCallback($callback));
+        $this->assertTrue($handler->verifyCallback($callback));
+
+        $forged = $handler->deliveryCallback([
+            'terminal_id' => '123456',
+            'transaction_id' => '789012',
+            'status' => 'canceled',
+            'event' => 'cancel',
+            'token' => $signature->generate('ORDER_1canceled789012'),
+        ]);
+        $this->assertFalse($handler->verifyDeliveryCallback($forged));
+
+        $this->expectException(InvalidSignatureException::class);
+        $handler->assertValidDeliveryCallback($forged);
+    }
+
+    public function test_a_marketplace_confirmation_is_verified_with_the_transaction_formula(): void
+    {
+        $handler = $this->handler();
+        $signature = new Signature('123456', 'super-secret');
+
+        $callback = $handler->deliveryCallback([
+            'terminal_id' => '200001',
+            'transaction_id' => '789013',
+            'status' => 'ok',
+            'event' => 'confirm',
+            'token' => $signature->generate('200001789013ok'),
+            'parent_transaction_id' => '789012',
+            'parent_status' => 'ok',
+        ]);
+
+        $this->assertTrue($callback->isSubTransaction());
+        $this->assertTrue($handler->verifyDeliveryCallback($callback));
+        $this->assertFalse($handler->verifyDeliveryCallback($handler->deliveryCallback([
+            'terminal_id' => '200001',
+            'transaction_id' => '789013',
+            'status' => 'ok',
+            'event' => 'confirm',
+        ])));
+    }
+
+    public function test_a_payment_callback_is_verified_with_the_order_formula_by_the_dispatcher(): void
+    {
+        $handler = $this->handler();
+        $signature = new Signature('123456', 'super-secret');
+
+        $callback = $handler->callback([
+            'orderId' => 'ORDER_1',
+            'transactionId' => '789012',
+            'status' => 'ok',
+            'event' => 'payment',
+            'token' => $signature->generate('ORDER_1ok789012'),
+            'amount' => 100.0,
+        ]);
+
+        $this->assertInstanceOf(PaymentCallback::class, $callback);
+        $this->assertTrue($handler->verifyCallback($callback));
+    }
+
+    public function test_a_lowercase_tokenization_callback_still_parses(): void
+    {
+        $callback = $this->handler()->tokenizationCallback([
+            'code' => 9,
+            'message' => 'Привязка завершилась с ошибкой',
+            'payload' => [
+                'transactionId' => 12346,
+                'orderId' => 'ORDER_2',
+                'token' => '',
+                'status' => 'failed',
+                'transaction_type' => 'tokenization_wallet',
+            ],
+        ]);
+
+        $this->assertSame(TokenizationStatus::Rejected, $callback->statusCode);
+        $this->assertSame('wallet', $callback->method());
+        $this->assertFalse($callback->isSuccessful());
     }
 
     public function test_a_status_response_can_be_asserted_instead_of_checked(): void

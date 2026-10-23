@@ -25,6 +25,7 @@ final class PaymentRequest
     private ?string $email = null;
     private ?string $phone = null;
     private ?string $deadline = null;
+    private bool $signInfo = false;
 
     /** @var array<int, InvoiceItem> */
     private array $invoices = [];
@@ -53,12 +54,10 @@ final class PaymentRequest
     }
 
     /**
-     * A gate by its raw value, for methods the published table does not name yet.
-     *
-     * Alif's own list of supported methods is longer than its list of gate values — Google Pay is
-     * on the first and not on the second — and a terminal may be set up with one before it is
-     * written down. An unknown value is not refused by the gateway: it answers with the standard
-     * payment form, where the customer picks.
+     * A gate by its raw value, for a value {@see Gate} does not name — the legacy `vsa` / `mcr`
+     * spellings of Visa and Mastercard, or a method Alif enabled on a terminal before documenting
+     * it. What the gateway does with an unlisted value is not documented; use one only when Alif
+     * gave it to you.
      */
     public function gateValue(string $gate): self
     {
@@ -92,6 +91,25 @@ final class PaymentRequest
         $this->info = $info;
 
         return $this;
+    }
+
+    /**
+     * Send `info_hash` — the signature of `info` — alongside it.
+     *
+     * The docs ask for it when `info` carries tax details, and allow it on Korti Milli only. The
+     * client computes the hash with the terminal password at send time, so the request never
+     * holds a secret.
+     */
+    public function signInfo(): self
+    {
+        $this->signInfo = true;
+
+        return $this;
+    }
+
+    public function shouldSignInfo(): bool
+    {
+        return $this->signInfo;
     }
 
     public function email(string $email): self
@@ -174,6 +192,14 @@ final class PaymentRequest
 
         if ($returnUrl === null || $returnUrl === '') {
             throw new ConfigurationException('A return_url is required (set it on the request or in config).');
+        }
+
+        if ($this->signInfo && ($this->info === null || $this->info === '')) {
+            throw new ConfigurationException('signInfo() needs an info text to sign.');
+        }
+
+        if ($this->signInfo && $this->gate !== Gate::KortiMilli->value) {
+            throw new ConfigurationException('info_hash is only accepted with the korti_milli gate.');
         }
 
         $this->callbackUrl = $callbackUrl;

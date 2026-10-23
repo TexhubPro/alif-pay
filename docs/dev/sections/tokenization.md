@@ -9,14 +9,17 @@ charge, look up, unbind.
 (`orderId`, `callbackURL`, `returnURL`, `clientID`). Signing string: `key + phone + gate`.
 
 Gates are in `Enums\TokenizationGate`, all prefixed `tokenization_`: korti_milli, wallet, salom,
-tcell, megafon, babilon, zetmobile, procard (Visa/Mastercard).
+tcell, megafon, babilon, zetmobile, visa, mastercard. Visa and Mastercard are confirmed by 3-D
+Secure at the card's bank, the rest by a one-time code. `procard` is not in the current docs; it
+is kept, deprecated, for older terminals.
 
 The phone must be `+992XXXXXXXXX`. `TokenizationRequest` normalizes whatever it is given — bare
 nine digits, spaces, dashes — before signing it, because the phone is part of the signing string
 and the sent value and the signed value must match.
 
-Alif marks `clientID` as required. The builder keeps it optional, since terminals differ; a
-terminal that wants it answers 400 without it.
+`clientID` is required (validation step 6, "Неправильный идентификатор клиента"), and a
+subscription later has to name the same value as `partner_client_id`. Since 3.0.0
+`TokenizationRequest::toArray()` refuses to build without it.
 
 ## charge() — take money from a bound method
 
@@ -27,7 +30,10 @@ The signature goes in a `hash` header, not the body, and the body `token` is the
 by the tokenization callback. Signing string: `key + order_id + amount + token`, with the amount in
 its two-decimal string form even though the body sends it as a number.
 
-`callback_url` is required; `return_url` is not. Adding splits (`splitTo()` / `addSplit()`) turns
+`callback_url` is required; `return_url` is not. A declined charge answers HTTP 203 — a 2xx that
+is still a failure; `AbstractClient` raises it as `ApiException` (`ResponseCode::Declined`). For
+Salom, Visa/Mastercard and terminals with mandatory 3-D Secure the answer carries `payload.url`,
+where the customer must be sent. Adding splits (`splitTo()` / `addSplit()`) turns
 it into a marketplace charge through `mpTerminalInfo`, and the splits must add up to the amount.
 
 ## status() — look up a binding
@@ -47,6 +53,7 @@ After removal the token cannot be charged.
 ## The callback
 
 `Webhook\TokenizationCallback` parses a shape unlike any payment callback: the result code sits at
-the root (`1` success, `2` duplicate, `9` rejected — `Enums\TokenizationStatus`) and the data sits
-under `payload`. It carries no token over its own contents, so there is nothing to verify; confirm
-with `status()` if it matters.
+the root (`Code`: `1` success, `2` duplicate, `9` rejected — `Enums\TokenizationStatus`) and the
+data sits under `Payload`, both in PascalCase (lowercase still read). `transaction_type` comes
+without the `tokenization_` prefix; `method()` normalizes it. It carries no token over its own
+contents, so there is nothing to verify; confirm with `status()` if it matters.

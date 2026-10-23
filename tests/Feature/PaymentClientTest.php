@@ -53,19 +53,81 @@ final class PaymentClientTest extends TestCase
         $this->assertSame('https://web.alif.tj/abc123', $response->redirectUrl());
     }
 
-    public function test_a_gate_the_enum_does_not_name_can_still_be_sent(): void
+    public function test_a_legacy_gate_value_can_still_be_sent(): void
     {
         $transport = new FakeTransport();
 
         $this->alif($transport)->payments()->initiate(
             PaymentRequest::make('ORDER_1', 10)
-                ->gateValue('google_pay')
+                ->gateValue('vsa')
                 ->callbackUrl('https://shop.tj/cb')
                 ->returnUrl('https://shop.tj/ok')
         );
 
-        $this->assertSame('google_pay', $transport->lastHeaders['gate']);
-        $this->assertSame('google_pay', $transport->lastBody['gate']);
+        $this->assertSame('vsa', $transport->lastHeaders['gate']);
+        $this->assertSame('vsa', $transport->lastBody['gate']);
+    }
+
+    public function test_visa_and_mastercard_go_out_under_their_documented_names(): void
+    {
+        $transport = new FakeTransport();
+
+        $this->alif($transport)->payments()->initiate(
+            PaymentRequest::make('ORDER_INT_001', 500)
+                ->gate(Gate::Mastercard)
+                ->email('buyer@example.com')
+                ->callbackUrl('https://shop.tj/cb')
+                ->returnUrl('https://shop.tj/ok')
+        );
+
+        $this->assertSame('mastercard', $transport->lastHeaders['gate']);
+        $this->assertSame('mastercard', $transport->lastBody['gate']);
+    }
+
+    public function test_info_with_tax_details_is_sent_with_its_signature(): void
+    {
+        $transport = new FakeTransport();
+
+        $this->alif($transport)->payments()->initiate(
+            PaymentRequest::make('ORDER_1', 10)
+                ->gate(Gate::KortiMilli)
+                ->info('ИНН 626409237')
+                ->signInfo()
+                ->callbackUrl('https://shop.tj/cb')
+                ->returnUrl('https://shop.tj/ok')
+        );
+
+        $expected = (new Signature('123456', 'super-secret'))->generate('ИНН 626409237');
+        $this->assertSame($expected, $transport->lastBody['info_hash']);
+        $this->assertSame('ИНН 626409237', $transport->lastBody['info']);
+    }
+
+    public function test_info_hash_is_not_sent_unless_asked_for(): void
+    {
+        $transport = new FakeTransport();
+
+        $this->alif($transport)->payments()->initiate(
+            PaymentRequest::make('ORDER_1', 10)
+                ->info('Оплата заказа')
+                ->callbackUrl('https://shop.tj/cb')
+                ->returnUrl('https://shop.tj/ok')
+        );
+
+        $this->assertArrayNotHasKey('info_hash', $transport->lastBody);
+    }
+
+    public function test_info_hash_is_refused_outside_korti_milli(): void
+    {
+        $this->expectException(ConfigurationException::class);
+
+        $this->alif(new FakeTransport())->payments()->initiate(
+            PaymentRequest::make('ORDER_1', 10)
+                ->gate(Gate::Wallet)
+                ->info('ИНН 626409237')
+                ->signInfo()
+                ->callbackUrl('https://shop.tj/cb')
+                ->returnUrl('https://shop.tj/ok')
+        );
     }
 
     public function test_a_gate_that_is_not_a_gate_is_refused(): void
@@ -147,5 +209,32 @@ final class PaymentClientTest extends TestCase
         $this->expectExceptionMessage('Транзакция не найдена');
 
         $this->alif($transport)->payments()->checkStatus('ORDER_1');
+    }
+
+    public function test_currency_lookup_signs_the_order_id_and_reads_the_rates(): void
+    {
+        $transport = (new FakeTransport())->willReturnJson([
+            'code' => 200,
+            'message' => 'Успешно',
+            'payload' => [
+                'type' => 'USD',
+                'rate' => 10.95,
+                'rates' => [
+                    ['type' => 'TJS', 'rate' => 1],
+                    ['type' => 'EUR', 'rate' => 11.80],
+                ],
+            ],
+        ]);
+
+        $rates = $this->alif($transport)->payments()->currency('ORDER_123456');
+
+        $this->assertSame('https://test-web.alif.tj/currency', $transport->lastUrl);
+        $this->assertSame('ORDER_123456', $transport->lastBody['order_id']);
+        $this->assertSame((new Signature('123456', 'super-secret'))->generate('123456ORDER_123456'), $transport->lastBody['token']);
+        $this->assertSame('USD', $rates->currency);
+        $this->assertSame(10.95, $rates->rateFor('USD'));
+        $this->assertSame(11.8, $rates->rateFor('EUR'));
+        $this->assertNull($rates->rateFor('GBP'));
+        $this->assertSame('1100.48', $rates->toSomoni('100.50'));
     }
 }

@@ -7,7 +7,9 @@ namespace TexHub\AlifPay\Tests\Feature;
 use PHPUnit\Framework\TestCase;
 use TexHub\AlifPay\AlifPay;
 use TexHub\AlifPay\Config;
+use TexHub\AlifPay\Enums\ResponseCode;
 use TexHub\AlifPay\Enums\TokenizationGate;
+use TexHub\AlifPay\Exceptions\ApiException;
 use TexHub\AlifPay\Exceptions\ConfigurationException;
 use TexHub\AlifPay\Requests\TokenChargeRequest;
 use TexHub\AlifPay\Requests\TokenizationRequest;
@@ -63,6 +65,7 @@ final class TokenizationClientTest extends TestCase
             TokenizationRequest::make('ORDER_2', '900 123-456', TokenizationGate::KortiMilli)
                 ->callbackUrl('https://shop.tj/cb')
                 ->returnUrl('https://shop.tj/ok')
+                ->clientId('client_7')
         );
 
         $data = $transport->lastBody['data'];
@@ -177,6 +180,56 @@ final class TokenizationClientTest extends TestCase
             $this->alif($transport)->tokenization()->remove('21321', '');
         } finally {
             $this->assertSame(0, $transport->calls);
+        }
+    }
+
+    public function test_a_binding_without_a_client_id_is_refused_before_sending(): void
+    {
+        $transport = new FakeTransport();
+
+        try {
+            $this->alif($transport)->tokenization()->initiate(
+                TokenizationRequest::make('ORDER_4', '+992900123456', TokenizationGate::Visa)
+                    ->callbackUrl('https://shop.tj/cb')
+                    ->returnUrl('https://shop.tj/ok')
+            );
+            $this->fail('A binding without clientID was sent.');
+        } catch (ConfigurationException) {
+            $this->assertSame(0, $transport->calls);
+        }
+    }
+
+    public function test_international_cards_are_bound_with_their_own_gates(): void
+    {
+        $transport = new FakeTransport();
+
+        $this->alif($transport)->tokenization()->initiate(
+            TokenizationRequest::make('ORDER_5', '+992900777888', TokenizationGate::Visa)
+                ->callbackUrl('https://shop.tj/cb')
+                ->returnUrl('https://shop.tj/ok')
+                ->clientId('client_99999')
+        );
+
+        $this->assertSame('tokenization_visa', $transport->lastBody['data']['gate']);
+        $this->assertSame('tokenization_visa', $transport->lastHeaders['gate']);
+    }
+
+    public function test_a_declined_token_charge_answers_203_and_is_an_error(): void
+    {
+        $transport = (new FakeTransport())->willReturnJson([
+            'code' => 203,
+            'message' => 'Платеж отклонен',
+        ], 203);
+
+        try {
+            $this->alif($transport)->tokenization()->charge(
+                TokenChargeRequest::make('ORDER_6', '100.00', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890')
+                    ->callbackUrl('https://shop.tj/cb')
+            );
+            $this->fail('A declined charge did not raise.');
+        } catch (ApiException $exception) {
+            $this->assertSame(ResponseCode::Declined, $exception->responseCode());
+            $this->assertFalse($exception->isRetryable());
         }
     }
 }

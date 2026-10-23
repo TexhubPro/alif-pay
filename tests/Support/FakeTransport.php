@@ -23,6 +23,8 @@ final class FakeTransport implements Transport
 
     public int $calls = 0;
 
+    public ?string $lastMethod = null;
+
     public function __construct(
         private int $statusCode = 200,
         private string $body = '{"code":200,"message":"Успешно","url":"https://web.alif.tj/abc123"}',
@@ -48,8 +50,20 @@ final class FakeTransport implements Transport
     public function post(string $url, array $body, array $headers = []): RawResponse
     {
         $this->calls++;
+        $this->lastMethod = 'POST';
         $this->lastUrl = $url;
         $this->lastBody = $body;
+        $this->lastHeaders = $headers;
+
+        return new RawResponse($this->statusCode, $this->body);
+    }
+
+    public function get(string $url, array $headers = []): RawResponse
+    {
+        $this->calls++;
+        $this->lastMethod = 'GET';
+        $this->lastUrl = $url;
+        $this->lastBody = null;
         $this->lastHeaders = $headers;
 
         return new RawResponse($this->statusCode, $this->body);

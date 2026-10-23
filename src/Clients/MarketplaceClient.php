@@ -9,6 +9,8 @@ use TexHub\AlifPay\Http\Response;
 use TexHub\AlifPay\Requests\Amount;
 use TexHub\AlifPay\Requests\DeliveryConfirmation;
 use TexHub\AlifPay\Requests\MarketplaceRequest;
+use TexHub\AlifPay\Responses\CurrencyRates;
+use TexHub\AlifPay\Responses\TerminalConditions;
 use TexHub\AlifPay\Signature;
 
 /**
@@ -135,5 +137,31 @@ final class MarketplaceClient extends AbstractClient
         }
 
         return $this->send('/cancel/marketplace', $body);
+    }
+
+    /**
+     * The Salom instalment options of every seller terminal tied to this marketplace terminal
+     * (`GET /conditions/{key}`), for picking a split's `condition_id` before the payment.
+     *
+     * Signing string: terminalId alone, sent in the `Token` header.
+     *
+     * @return list<TerminalConditions>
+     */
+    public function salomConditions(): array
+    {
+        $key = $this->config->terminalId;
+
+        return TerminalConditions::listFromResponse(
+            $this->sendGet('/conditions/' . rawurlencode($key), ['Token' => $this->token($key)]),
+        );
+    }
+
+    /**
+     * The terminal's currency and its rate to the somoni (`POST /currency`) — needed when the
+     * terminal is not in somoni, to show the payer the amount the form will charge.
+     */
+    public function currency(string $orderId): CurrencyRates
+    {
+        return $this->fetchCurrency($orderId);
     }
 }

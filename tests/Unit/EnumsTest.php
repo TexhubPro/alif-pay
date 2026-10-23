@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace TexHub\AlifPay\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use TexHub\AlifPay\Enums\CallbackEvent;
 use TexHub\AlifPay\Enums\Environment;
+use TexHub\AlifPay\Enums\Gate;
 use TexHub\AlifPay\Enums\PaymentStatus;
 use TexHub\AlifPay\Enums\ResponseCode;
+use TexHub\AlifPay\Enums\TokenizationGate;
 use TexHub\AlifPay\Enums\TokenizationState;
 
 final class EnumsTest extends TestCase
@@ -54,9 +57,39 @@ final class EnumsTest extends TestCase
     public function test_response_code_retryability(): void
     {
         $this->assertTrue(ResponseCode::InternalError->isRetryable());
-        $this->assertTrue(ResponseCode::NotFound->isRetryable());
+        $this->assertFalse(ResponseCode::NotFound->isRetryable());
         $this->assertFalse(ResponseCode::BadRequest->isRetryable());
+        $this->assertFalse(ResponseCode::Declined->isRetryable());
+        $this->assertSame(ResponseCode::Accepted, ResponseCode::tryFromInt(202));
+        $this->assertSame(ResponseCode::Declined, ResponseCode::tryFromInt(203));
         $this->assertTrue(ResponseCode::Success->isSuccess());
         $this->assertNull(ResponseCode::tryFromInt(null));
+    }
+
+    public function test_international_card_gates_use_the_documented_names(): void
+    {
+        $this->assertSame('visa', Gate::Visa->value);
+        $this->assertSame('mastercard', Gate::Mastercard->value);
+        $this->assertNull(Gate::tryFrom('vsa'));
+        $this->assertTrue(Gate::KortiMilli->acceptsInfoHash());
+        $this->assertFalse(Gate::Visa->acceptsInfoHash());
+        $this->assertTrue(Gate::Salom->requiresInvoices());
+        $this->assertFalse(Gate::Invoice->requiresInvoices());
+    }
+
+    public function test_tokenization_binds_visa_and_mastercard_directly(): void
+    {
+        $this->assertSame('tokenization_visa', TokenizationGate::Visa->value);
+        $this->assertSame('tokenization_mastercard', TokenizationGate::Mastercard->value);
+        $this->assertTrue(TokenizationGate::Mastercard->isInternationalCard());
+        $this->assertFalse(TokenizationGate::Wallet->isInternationalCard());
+    }
+
+    public function test_callback_events_split_by_signing_formula(): void
+    {
+        $this->assertFalse(CallbackEvent::Payment->isTransactionEvent());
+        $this->assertTrue(CallbackEvent::Confirm->isTransactionEvent());
+        $this->assertTrue(CallbackEvent::Cancel->isTransactionEvent());
+        $this->assertSame(CallbackEvent::Tokenize, CallbackEvent::tryFrom('tokenize'));
     }
 }

@@ -17,7 +17,7 @@ final class CurlTransport implements Transport
 {
     public function __construct(
         private readonly int $timeout = 30,
-        private readonly string $userAgent = 'texhub-alif-pay/2.0 (+https://texhub.pro)',
+        private readonly string $userAgent = 'texhub-alif-pay/3.0 (+https://texhub.pro)',
     ) {
     }
 
@@ -33,17 +33,34 @@ final class CurlTransport implements Transport
         }
 
         $headers['Content-Type'] = 'application/json';
+
+        return $this->request($url, $headers, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+        ]);
+    }
+
+    public function get(string $url, array $headers = []): RawResponse
+    {
+        return $this->request($url, $headers, [CURLOPT_HTTPGET => true]);
+    }
+
+    /**
+     * @param array<string, string> $headers
+     * @param array<int, mixed>     $method
+     */
+    private function request(string $url, array $headers, array $method): RawResponse
+    {
         $headers['Accept'] = 'application/json';
 
         $headerLines = [];
+
         foreach ($headers as $name => $value) {
             $headerLines[] = $name . ': ' . $value;
         }
 
-        $options = [
+        $options = $method + [
             CURLOPT_URL => $url,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $payload,
             CURLOPT_HTTPHEADER => $headerLines,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => $this->timeout,
@@ -66,6 +83,7 @@ final class CurlTransport implements Transport
         $errorNo = curl_errno($ch);
         $error = curl_error($ch);
         $statusCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+
         unset($ch);
 
         if ($errorNo !== 0 || $response === false) {

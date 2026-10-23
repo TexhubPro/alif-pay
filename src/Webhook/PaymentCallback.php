@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace TexHub\AlifPay\Webhook;
 
+use TexHub\AlifPay\Enums\CallbackEvent;
 use TexHub\AlifPay\Enums\PaymentStatus;
 
 /**
- * Parsed payment (and marketplace) callback payload.
+ * Parsed payment callback: a standard payment, a marketplace payment (with `sub_transactions`) or
+ * a subscription charge. Alif marks all three with `"event": "payment"` and signs them over
+ * `orderId . status . transactionId`.
  *
  * @see https://docs.acquiring.alif.tj/payments
  * @see https://docs.acquiring.alif.tj/marketplace
@@ -30,6 +33,9 @@ final class PaymentCallback
         public readonly ?string $transactionType,
         public readonly array $subTransactions,
         public readonly array $raw,
+        public readonly ?CallbackEvent $event = null,
+        public readonly string $rawEvent = '',
+        public readonly ?string $info = null,
     ) {
     }
 
@@ -39,6 +45,7 @@ final class PaymentCallback
     public static function fromArray(array $data): self
     {
         $rawStatus = (string) ($data['status'] ?? '');
+        $rawEvent = (string) ($data['event'] ?? '');
 
         $subs = [];
         foreach ((array) ($data['sub_transactions'] ?? []) as $sub) {
@@ -59,6 +66,9 @@ final class PaymentCallback
             transactionType: isset($data['transaction_type']) ? (string) $data['transaction_type'] : null,
             subTransactions: $subs,
             raw: $data,
+            event: CallbackEvent::tryFrom($rawEvent),
+            rawEvent: $rawEvent,
+            info: isset($data['info']) ? (string) $data['info'] : null,
         );
     }
 

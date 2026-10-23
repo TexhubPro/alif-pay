@@ -2,6 +2,43 @@
 
 Newest first. Product-facing release notes live in `../../CHANGELOG.md`.
 
+## 2026-10-24 — 3.0.0, aligned with the docs again
+
+**Why.** TexHub Billing started paying invoices through Alif and its webhook would have dropped
+every payment: a fresh read of <https://docs.acquiring.alif.tj> (intro, payments, marketplace,
+tokenization, subscription; downloaded 2026-10-24) showed the payment callback now carries
+`"event": "payment"`, which 2.x took for a delivery event.
+
+**Callbacks.** `DeliveryCallback::matches()` keys on `confirm` / `cancel` only.
+`CallbackEvent` gained `Payment` and `Tokenize`; `PaymentCallback` gained `event` and `info`.
+Confirm / cancel callbacks are signed (`terminal_id + transaction_id + status`) — 2.x said they
+were not; `DeliveryCallback::$token`, `verifyDeliveryCallback()`, `verifyCallback()` added.
+Tokenization callbacks are PascalCase; read first, lowercase second.
+→ `sections/webhooks.md`, `sections/tokenization.md`, `architecture.md`
+
+**Gates — breaking.** `Gate::Visa` / `Gate::Mastercard` are `visa` / `mastercard` as documented
+(Alif's SDK repo still says `vsa` / `mcr`; the docs win, the old names stay reachable through
+`gateValue()`). `TokenizationGate` gained `Visa` / `Mastercard`; `Procard` deprecated. The claim
+that an unknown gate falls back to the standard form was undocumented and is gone.
+`requiresInvoices()` is Salom only. `info_hash` support through `PaymentRequest::signInfo()`.
+→ `sections/payments.md`, `sections/tokenization.md`
+
+**New endpoints.** `POST /currency` (`payments()` / `marketplace()->currency()`),
+`GET /conditions/{key}` (`marketplace()->salomConditions()`), the Subscriptions API
+(`subscriptions()->create/status/cancel`). Typed answers live in the new `src/Responses/`.
+`Transport` gained `get()` — breaking for custom transports.
+→ `sections/subscriptions.md` (new), `sections/marketplace.md`, `sections/transport.md`
+
+**Codes.** 404 is no longer retryable (only 500 is, per /intro); 202 and 203 added; clients accept
+extra OK codes per call. `TokenizationRequest` requires `clientId()`.
+→ `sections/transport.md`
+
+**Kept, flagged.** `settled`, `approved`, `partial_approved` and 403 are not in the current docs;
+kept so older answers parse. Test cards and Google Pay / Apple Pay / operator payment gates are not
+documented.
+
+Tests: 91 (was 67).
+
 ## 2026-09-23 — rebuilt against the current Alif documentation
 
 **Why.** The package was written against an earlier reading of the acquiring documentation and had

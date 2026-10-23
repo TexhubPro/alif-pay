@@ -7,6 +7,7 @@ namespace TexHub\AlifPay\Clients;
 use TexHub\AlifPay\Http\Response;
 use TexHub\AlifPay\Requests\Amount;
 use TexHub\AlifPay\Requests\PaymentRequest;
+use TexHub\AlifPay\Responses\CurrencyRates;
 use TexHub\AlifPay\Signature;
 
 /**
@@ -19,7 +20,8 @@ final class PaymentClient extends AbstractClient
     /**
      * Initialize a payment and obtain the redirect URL.
      *
-     * Signing string: terminalId . order_id . amount . callback_url
+     * Signing string: terminalId . order_id . amount . callback_url. When the request asks for
+     * it, `info_hash` is the signature of `info` alone.
      */
     public function initiate(PaymentRequest $request): Response
     {
@@ -32,6 +34,10 @@ final class PaymentClient extends AbstractClient
             $body['amount'],
             $body['callback_url'],
         ));
+
+        if ($request->shouldSignInfo()) {
+            $body['info_hash'] = $this->token((string) $body['info']);
+        }
 
         return $this->send('/v2/', $body, ['gate' => (string) $body['gate']]);
     }
@@ -85,5 +91,14 @@ final class PaymentClient extends AbstractClient
         }
 
         return $this->send('/cancel/standard', $body);
+    }
+
+    /**
+     * The terminal's currency and its rate to the somoni (`POST /currency`) — needed when the
+     * terminal is not in somoni, to show the payer the amount the form will charge.
+     */
+    public function currency(string $orderId): CurrencyRates
+    {
+        return $this->fetchCurrency($orderId);
     }
 }

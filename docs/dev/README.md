@@ -12,9 +12,10 @@ config or tests.
 | `changelog.md` | Dated entries — what changed, why, which section docs moved with it |
 | `sections/signing.md` | The HMAC scheme, every signing string, where each one is built |
 | `sections/transport.md` | `Transport`, `CurlTransport`, response decoding, error mapping |
-| `sections/payments.md` | Standard payments: initiate, status, cancel |
+| `sections/payments.md` | Standard payments: initiate, status, cancel, currency |
 | `sections/tokenization.md` | Binding a payment method, charging it, status, removal |
-| `sections/marketplace.md` | Split payments, delivery confirmation, cancellation |
+| `sections/subscriptions.md` | Regular charges from a bound method: create, status, cancel |
+| `sections/marketplace.md` | Split payments, delivery confirmation, cancellation, Salom conditions |
 | `sections/webhooks.md` | Callback shapes, parsing, verification, what verification does not prove |
 | `sections/laravel.md` | Service provider, facade, config publishing |
 | `sections/testing.md` | Test layout, `FakeTransport`, what each suite covers |

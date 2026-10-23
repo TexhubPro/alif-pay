@@ -24,4 +24,14 @@ interface Transport
      * @throws TransportException On connection/network failures.
      */
     public function post(string $url, array $body, array $headers = []): RawResponse;
+
+    /**
+     * Perform a GET request (used by `GET /conditions/{key}`).
+     *
+     * @param string                $url     Absolute URL.
+     * @param array<string, string> $headers Extra headers.
+     *
+     * @throws TransportException On connection/network failures.
+     */
+    public function get(string $url, array $headers = []): RawResponse;
 }

@@ -23,13 +23,21 @@ enum Gate: string
     /** Cash invoice payment. */
     case Invoice = 'invoice';
 
-    /** Visa (international card). */
-    case Visa = 'vsa';
+    /**
+     * Visa (international card), paid on Alif's own form.
+     *
+     * The docs name it `visa`. Older Alif examples used `vsa`; that value is still reachable
+     * through {@see \TexHub\AlifPay\Requests\PaymentRequest::gateValue()} for terminals set up
+     * before the rename.
+     */
+    case Visa = 'visa';
 
-    /** Mastercard (international card). */
-    case Mastercard = 'mcr';
+    /**
+     * Mastercard (international card), paid on Alif's own form. Legacy value: `mcr`.
+     */
+    case Mastercard = 'mastercard';
 
-    /** Cybersource hosted checkout. */
+    /** International cards processed and shown on Cybersource's hosted checkout form. */
     case CybersourceCheckout = 'cybersource_checkout';
 
     public function isInstallment(): bool
@@ -37,8 +45,20 @@ enum Gate: string
         return $this === self::Salom;
     }
 
+    /**
+     * Whether the goods list (`invoices`) is expected with this gate.
+     *
+     * The docs make `invoices` mandatory only where the terminal is set up to demand it, and show
+     * it on Salom alone; a cash invoice is sent without one.
+     */
     public function requiresInvoices(): bool
     {
-        return $this === self::Salom || $this === self::Invoice;
+        return $this === self::Salom;
+    }
+
+    /** Whether `info_hash` may accompany the request — the docs allow it on Korti Milli only. */
+    public function acceptsInfoHash(): bool
+    {
+        return $this === self::KortiMilli;
     }
 }

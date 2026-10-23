@@ -23,6 +23,8 @@ different Alif product and is deliberately out of scope.
 | HTTP | `src/Http/` | `sections/transport.md` |
 | Payments | `src/Clients/PaymentClient.php`, `src/Requests/PaymentRequest.php` | `sections/payments.md` |
 | Tokenization | `src/Clients/TokenizationClient.php`, `src/Requests/Tokenization*.php`, `src/Requests/TokenChargeRequest.php` | `sections/tokenization.md` |
+| Subscriptions | `src/Clients/SubscriptionClient.php`, `src/Requests/SubscriptionRequest.php`, `src/Responses/Subscription*.php` | `sections/subscriptions.md` |
+| Typed responses | `src/Responses/` | the section that owns each one |
 | Marketplace | `src/Clients/MarketplaceClient.php`, `src/Requests/MarketplaceRequest.php`, `src/Requests/TerminalSplit.php`, `src/Requests/DeliveryConfirmation.php` | `sections/marketplace.md` |
 | Webhooks | `src/Webhook/` | `sections/webhooks.md` |
 | Provider endpoint | `src/Provider/` | `sections/provider.md` |
@@ -58,25 +60,33 @@ That is why `key` and `token` are injected by the client at the last moment.
 | `POST /cancel/marketplace` | `marketplace()->cancel()` | `key + transaction_id + amount` | body `token` |
 | `POST /confirm-delivery` | `marketplace()->confirmDelivery()` | `key + transaction_id + amount` | body `token` |
 | `POST /confirm-vsa-and-mcr-delivery` | `marketplace()->confirmVsaMcrDelivery()` | `key + parent_transaction_id` | body `token` |
+| `POST /currency` | `payments()->currency()`, `marketplace()->currency()` | `key + order_id` | body `token` |
+| `GET /conditions/{key}` | `marketplace()->salomConditions()` | `key` | `Token` header |
+| `POST /subscription/create` | `subscriptions()->create()` | `terminal_id + order_id + amount + token_request_id` | body `hash` |
+| `POST /subscription/status` | `subscriptions()->status()` | `terminal_id + order_id` | body `hash` |
+| `POST /subscription/cancel` | `subscriptions()->cancel()` | `terminal_id + order_id` | body `hash` |
 | `POST /pay/token` | `tokenization()->charge()` | `key + order_id + amount + token` | header `hash` |
 | `POST /tokenization/status` | `tokenization()->status()` | `key + request_id` | header `hash` |
 | `POST /tokenization/remove` | `tokenization()->remove()` | `key + token` | header `hash` |
 
-The older endpoints carry the signature in the body under `token`; the three newest carry it in a
-`hash` header, and their body `token` is the UUID of a bound payment method instead. Reading a
+The older endpoints carry the signature in the body under `token`; the token-charge and
+tokenization lookups carry it in a `hash` header, and their body `token` is the UUID of a bound
+payment method instead; subscriptions carry it in a body field named `hash`; Salom conditions in a
+`Token` header. Reading a
 `token` field therefore means nothing without knowing which endpoint it came from.
 
 ## Inbound directions
 
 | Arrives at | Parsed by | Verifiable |
 |------------|-----------|------------|
-| Payment / marketplace callback | `Webhook\PaymentCallback` | yes, `orderId + status + transactionId` |
-| Delivery confirm / cancel event | `Webhook\DeliveryCallback` | no token in the payload |
+| Payment callback (`event: payment` — standard, marketplace, subscription charge) | `Webhook\PaymentCallback` | yes, `orderId + status + transactionId` |
+| Confirm / cancel event (`event: confirm` / `cancel`) | `Webhook\DeliveryCallback` | yes, `terminal_id + transaction_id + status` |
 | Tokenization callback | `Webhook\TokenizationCallback` | no token over the payload |
 | Provider `check` / `pay` / `status` | `Provider\ProviderRequest` | HTTP Basic, constant-time |
 
-`WebhookHandler::callback()` picks between the first two by looking for `event` /
-`parent_transaction_id`, since all three land on the same URL.
+`WebhookHandler::callback()` picks between the first two by the `event` value (`confirm` /
+`cancel` versus `payment`), falling back to `parent_transaction_id` / `terminal_id` for payloads
+without one, and `verifyCallback()` applies the matching formula. All three land on the same URL.
 
 ## Conventions
 

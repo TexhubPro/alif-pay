@@ -7,8 +7,12 @@ namespace TexHub\AlifPay\Enums;
 /**
  * Transaction statuses delivered through callbacks and status checks.
  *
- * Standard payments move between pending, ok, failed, canceled and partially_canceled;
- * marketplace payments add the hold states to_approve, partially_approved and approved.
+ * Standard payments move between pending, ok, failed and canceled — canceled only ever follows
+ * ok, meaning the money was taken and returned. Marketplace payments add the hold states
+ * to_approve, partially_approved and partially_canceled.
+ *
+ * `settled`, `approved` and `partial_approved` are not in the current docs. They are kept so that
+ * an answer carrying them still parses, and are treated as captured where that is the safe reading.
  *
  * @see https://docs.acquiring.alif.tj/payments
  * @see https://docs.acquiring.alif.tj/marketplace
@@ -24,10 +28,10 @@ enum PaymentStatus: string
     /** Payment completed successfully (funds captured). */
     case Ok = 'ok';
 
-    /** Funds settled with the merchant; still cancellable. */
+    /** Funds settled with the merchant. Not in the current docs; kept for older answers. */
     case Settled = 'settled';
 
-    /** Delivery confirmed / captured (marketplace). */
+    /** Delivery confirmed / captured. Not in the current payment docs; kept for older answers. */
     case Approved = 'approved';
 
     /** Payment failed (insufficient funds, declined, …). */
@@ -39,7 +43,7 @@ enum PaymentStatus: string
     /** Partially approved (marketplace). */
     case PartiallyApproved = 'partially_approved';
 
-    /** Partially approved — alternate spelling used in some marketplace callbacks. */
+    /** Alternate spelling of partially_approved. Not in the current docs; kept for older answers. */
     case PartialApproved = 'partial_approved';
 
     /** Partially cancelled (marketplace). */

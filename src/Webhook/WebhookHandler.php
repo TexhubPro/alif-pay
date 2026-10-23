@@ -14,20 +14,21 @@ use TexHub\AlifPay\Signature;
  *
  * Verification
  * ------------
- * Alif signs what it sends back with the same HMAC scheme it expects on the way in, over
- * `orderId . status . transactionId`. Both the acquiring documentation ("Верификация токена
- * ответа") and the WebCheckout protocol specification give that string, and a payment callback
- * carries exactly those fields — so that is what these helpers check by default. A custom signing
- * string can still be passed if a terminal is set up differently.
+ * Alif signs what it sends back with the same HMAC scheme it expects on the way in. The string
+ * depends on the event:
+ *
+ *   - `payment` (standard, marketplace, subscription charge): `orderId . status . transactionId`,
+ *     the same string as a status lookup answer;
+ *   - `confirm` / `cancel`: `terminal_id . transaction_id . status`.
+ *
+ * {@see verifyCallback()} picks the right one; the specific helpers are there too.
  *
  * A verified callback is not the same as a settled payment. A callback is a public endpoint:
- * confirm the outcome with a status lookup before handing anything over.
- *
- * Not every callback can be verified. Marketplace delivery and cancellation events describe a
- * single sub-transaction and carry no token at all — {@see DeliveryCallback}.
+ * confirm the outcome with a status lookup before handing anything over, answer exactly HTTP 200
+ * once it is handled, and keep the handler idempotent — Alif retries anything else up to 15 times.
  *
  * @see https://docs.acquiring.alif.tj/payments
- * @see https://alifcapital.github.io/webcheckout
+ * @see https://docs.acquiring.alif.tj/marketplace
  */
 final class WebhookHandler
 {
@@ -57,8 +58,9 @@ final class WebhookHandler
     /**
      * Parse any payment-side callback, choosing the right shape for the body.
      *
-     * Alif posts three different structures to the same URL: the full payment callback, and the
-     * two sub-transaction events raised by a delivery confirmation or a cancellation.
+     * Alif posts two shapes to the same URL: the payment callback (`event: payment`) and the
+     * single-transaction event raised by a delivery confirmation or a cancellation
+     * (`event: confirm` / `cancel`).
      *
      * @param string|array<string, mixed> $body
      */
@@ -163,6 +165,43 @@ final class WebhookHandler
         if (! $this->verifyStatusResponse($response)) {
             throw new InvalidSignatureException('Alif status response signature verification failed.');
         }
+    }
+
+    /**
+     * Verify a confirmation or cancellation callback: token = HMAC(terminal_id . transaction_id . status).
+     */
+    public function verifyDeliveryCallback(DeliveryCallback $callback): bool
+    {
+        if ($callback->token === '' || $callback->terminalId === '' || $callback->transactionId === '' || $callback->rawStatus === '') {
+            return false;
+        }
+
+        return $this->signature->verify(
+            Signature::concat($callback->terminalId, $callback->transactionId, $callback->rawStatus),
+            $callback->token,
+        );
+    }
+
+    /**
+     * Verify a confirmation or cancellation callback, throwing on mismatch.
+     *
+     * @throws InvalidSignatureException
+     */
+    public function assertValidDeliveryCallback(DeliveryCallback $callback): void
+    {
+        if (! $this->verifyDeliveryCallback($callback)) {
+            throw new InvalidSignatureException('Alif delivery/cancel callback signature verification failed.');
+        }
+    }
+
+    /**
+     * Verify any payment-side callback with the formula its event calls for.
+     */
+    public function verifyCallback(PaymentCallback|DeliveryCallback $callback): bool
+    {
+        return $callback instanceof DeliveryCallback
+            ? $this->verifyDeliveryCallback($callback)
+            : $this->verifyPaymentCallback($callback);
     }
 
     /**

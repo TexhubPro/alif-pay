@@ -128,4 +128,48 @@ final class MarketplaceClientTest extends TestCase
         $this->assertSame('MP_ORDER_123', $transport->lastBody['orderId']);
         $this->assertCount(1, $response->get('sub_transactions'));
     }
+
+    public function test_salom_conditions_are_fetched_with_the_key_signed_in_a_token_header(): void
+    {
+        $transport = (new FakeTransport())->willReturnJson([
+            'code' => 200,
+            'message' => 'Успешно',
+            'payload' => [
+                [
+                    'terminal_id' => '200001',
+                    'conditions' => [
+                        ['id' => 12, 'display_name' => 'Рассрочка на 6 месяцев', 'client_commission' => 0, 'duration_max' => 6, 'duration_type' => 'month'],
+                        ['id' => 18, 'display_name' => 'Рассрочка на 12 месяцев', 'client_commission' => 5, 'duration_max' => 12, 'duration_type' => 'month'],
+                    ],
+                ],
+                ['terminal_id' => '200002', 'conditions' => [['id' => 6, 'display_name' => 'Рассрочка на 3 месяца', 'client_commission' => 0, 'duration_max' => 3, 'duration_type' => 'month']]],
+            ],
+        ]);
+
+        $terminals = $this->alif($transport)->marketplace()->salomConditions();
+
+        $this->assertSame('GET', $transport->lastMethod);
+        $this->assertSame('https://test-web.alif.tj/conditions/123456', $transport->lastUrl);
+        $this->assertSame((new Signature('123456', 'super-secret'))->generate('123456'), $transport->lastHeaders['Token']);
+        $this->assertCount(2, $terminals);
+        $this->assertSame('200001', $terminals[0]->terminalId);
+        $this->assertSame(18, $terminals[0]->conditions[1]->id);
+        $this->assertSame(5.0, $terminals[0]->conditions[1]->clientCommission);
+        $this->assertSame('Рассрочка на 3 месяца', $terminals[1]->conditions[0]->displayName);
+    }
+
+    public function test_the_marketplace_terminal_currency_can_be_looked_up(): void
+    {
+        $transport = (new FakeTransport())->willReturnJson([
+            'code' => 200,
+            'message' => 'Успешно',
+            'payload' => ['type' => 'TJS', 'rate' => 1, 'rates' => [['type' => 'USD', 'rate' => 10.95]]],
+        ]);
+
+        $rates = $this->alif($transport)->marketplace()->currency('MP_ORDER_123');
+
+        $this->assertSame('https://test-web.alif.tj/currency', $transport->lastUrl);
+        $this->assertSame('TJS', $rates->currency);
+        $this->assertSame(10.95, $rates->rateFor('usd'));
+    }
 }

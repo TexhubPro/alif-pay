@@ -2,6 +2,60 @@
 
 All notable changes to `texhub/alif-pay`.
 
+## 3.0.0 — 2026-10-24
+
+Aligned with the documentation as published on 2026-10-24 (<https://docs.acquiring.alif.tj>:
+intro, payments, marketplace, tokenization, subscription).
+
+### Breaking
+
+- `Gate::Visa` is now `visa` and `Gate::Mastercard` is `mastercard`, the names the docs use.
+  Terminals still set up with the old `vsa` / `mcr` can send them with `gateValue('vsa')`.
+- `Transport` gained `get()` (needed by `GET /conditions/{key}`). A custom transport must
+  implement it.
+- `TokenizationRequest` refuses to build without `clientId()`; the gateway rejects such a binding
+  anyway.
+- `ResponseCode::NotFound->isRetryable()` is now `false`; the docs mark only 500 as worth retrying.
+- `Gate::requiresInvoices()` is true for Salom only; a cash invoice is documented without goods.
+
+### Fixed
+
+- Standard payment callbacks parsed as `DeliveryCallback`. Every payment callback now carries
+  `"event": "payment"`, and `webhooks()->callback()` took any `event` as a delivery event. Only
+  `confirm` / `cancel` (or a parent transaction) select that shape now.
+- Tokenization callbacks parsed empty. Alif sends `Code`, `Message`, `ReasonCode` and `Payload` in
+  PascalCase; they are read first, lowercase second.
+- Confirmation and cancellation callbacks were described as unsigned. They carry a `token` over
+  `terminal_id . transaction_id . status`; `DeliveryCallback::$token` and
+  `webhooks()->verifyDeliveryCallback()` check it.
+
+### Added
+
+- `subscriptions()` — `create()`, `status()`, `cancel()` for `POST /subscription/*`, with
+  `SubscriptionRequest`, `SubscriptionStatus`, `SubscriptionPeriod`, `IntervalUnit` and typed
+  `SubscriptionCreated` / `SubscriptionDetails`.
+- `payments()->currency()` and `marketplace()->currency()` — `POST /currency`, typed as
+  `CurrencyRates` with `rateFor()` and `toSomoni()`.
+- `marketplace()->salomConditions()` — `GET /conditions/{key}`, typed as `TerminalConditions`.
+- `PaymentRequest::signInfo()` — sends `info_hash` for tax details on Korti Milli.
+- `TokenizationGate::Visa`, `TokenizationGate::Mastercard`.
+- `CallbackEvent::Payment`, `CallbackEvent::Tokenize`; `PaymentCallback::$event`, `$info`.
+- `webhooks()->verifyCallback()` picks the formula by event; `assertValidDeliveryCallback()`.
+- `TokenizationCallback::method()` — the bound method without the `tokenization_` prefix.
+- `ResponseCode::Accepted` (202) and `ResponseCode::Declined` (203, a declined token charge).
+
+### Deprecated
+
+- `TokenizationGate::Procard` — not in the current docs; use `Visa` / `Mastercard`.
+
+### Notes
+
+- `PaymentStatus::Settled`, `Approved` and `PartialApproved`, and `ResponseCode::Forbidden`, are
+  not in the current docs. They stay so older answers still parse.
+- The docs list Google Pay, Apple Pay and the mobile operators as supported, but publish no
+  payment `gate` value for them. The README no longer claims an unknown gate falls back to the
+  standard form; that is not documented.
+
 ## 2.0.0 — 2026-09-23
 
 Rebuilt against the current Alif documentation: <https://docs.acquiring.alif.tj> and

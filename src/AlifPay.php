@@ -6,6 +6,7 @@ namespace TexHub\AlifPay;
 
 use TexHub\AlifPay\Clients\MarketplaceClient;
 use TexHub\AlifPay\Clients\PaymentClient;
+use TexHub\AlifPay\Clients\SubscriptionClient;
 use TexHub\AlifPay\Clients\TokenizationClient;
 use TexHub\AlifPay\Enums\Environment;
 use TexHub\AlifPay\Exceptions\ConfigurationException;
@@ -43,6 +44,7 @@ final class AlifPay
     private ?PaymentClient $payments = null;
     private ?TokenizationClient $tokenization = null;
     private ?MarketplaceClient $marketplace = null;
+    private ?SubscriptionClient $subscriptions = null;
     private ?WebhookHandler $webhooks = null;
     private ?ProviderServer $provider = null;
 
@@ -102,6 +104,11 @@ final class AlifPay
     public function marketplace(): MarketplaceClient
     {
         return $this->marketplace ??= new MarketplaceClient($this->config, $this->transport, $this->signature);
+    }
+
+    public function subscriptions(): SubscriptionClient
+    {
+        return $this->subscriptions ??= new SubscriptionClient($this->config, $this->transport, $this->signature);
     }
 
     public function webhooks(): WebhookHandler
